@@ -2,6 +2,7 @@ import os
 import sqlite3
 from typing import Optional
 from langchain_core.tools import tool
+from langchain_core.messages import ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -31,23 +32,19 @@ generator_workflow.add_conditional_edges('agent', tools_condition, {'tools': 'to
 generator_workflow.add_edge('tools', 'agent')
 sample_generator_graph = generator_workflow.compile()
 
-# 3. Define Subagent Tools for Assistant
+# 3. Define Subagent Schema Tools for Assistant
 @tool
-def call_data_editor(query: str, config: Optional[RunnableConfig] = None) -> str:
+def call_data_editor(query: str) -> str:
     """
     Delegate database write or mutation operations (INSERT, UPDATE, DELETE, ALTER, DROP, etc.) to the Data Editor subagent.
     
     Args:
         query: Clear instructions or SQL statement for the write operation.
     """
-    result = data_editor_graph.invoke({"messages": [("user", query)]}, config)
-    messages = result.get("messages", [])
-    if messages:
-        return messages[-1].content
-    return "Data Editor task completed."
+    return "Data Editor task initiated."
 
 @tool
-def call_sample_generator(target_table: str, requirements: Optional[str] = None, config: Optional[RunnableConfig] = None) -> str:
+def call_sample_generator(target_table: str, requirements: Optional[str] = None) -> str:
     """
     Delegate synthetic mock data generation and populating database tables to the Sample Data Generator subagent.
     
@@ -55,30 +52,91 @@ def call_sample_generator(target_table: str, requirements: Optional[str] = None,
         target_table: Name of the table to generate sample data for.
         requirements: Optional custom rules or specific column guidelines.
     """
-    prompt = f"Generate mock data for table '{target_table}'."
-    if requirements:
-        prompt += f" Requirements/Rules: {requirements}"
-    result = sample_generator_graph.invoke({"messages": [("user", prompt)]}, config)
-    messages = result.get("messages", [])
-    if messages:
-        return messages[-1].content
-    return "Sample Data Generator task completed."
+    return "Sample Data Generator task initiated."
 
-# Combine base read-only tools with subagent tools
+# Combine base read-only tools with subagent tools schema
 assistant_tools = base_assistant_tools + [call_data_editor, call_sample_generator]
 
-# 4. Create Main Database Assistant Graph
+# 4. Define Subagent Node Functions with State Mapping (Invoking subgraphs inside nodes)
+def editor_subagent_node(state: MessagesState, config: Optional[RunnableConfig] = None):
+    messages = state.get("messages", [])
+    if not messages:
+        return {"messages": []}
+    last_message = messages[-1]
+    
+    tool_messages = []
+    if hasattr(last_message, "tool_calls"):
+        for tc in last_message.tool_calls:
+            if tc["name"] == "call_data_editor":
+                query = tc["args"].get("query", "")
+                result = data_editor_graph.invoke({"messages": [("user", query)]}, config)
+                res_messages = result.get("messages", [])
+                content = res_messages[-1].content if res_messages else "Data Editor task completed."
+                tool_messages.append(ToolMessage(content=content, name=tc["name"], tool_call_id=tc["id"]))
+    return {"messages": tool_messages}
+
+def generator_subagent_node(state: MessagesState, config: Optional[RunnableConfig] = None):
+    messages = state.get("messages", [])
+    if not messages:
+        return {"messages": []}
+    last_message = messages[-1]
+    
+    tool_messages = []
+    if hasattr(last_message, "tool_calls"):
+        for tc in last_message.tool_calls:
+            if tc["name"] == "call_sample_generator":
+                target_table = tc["args"].get("target_table", "")
+                requirements = tc["args"].get("requirements")
+                prompt = f"Generate mock data for table '{target_table}'."
+                if requirements:
+                    prompt += f" Requirements/Rules: {requirements}"
+                result = sample_generator_graph.invoke({"messages": [("user", prompt)]}, config)
+                res_messages = result.get("messages", [])
+                content = res_messages[-1].content if res_messages else "Sample Data Generator task completed."
+                tool_messages.append(ToolMessage(content=content, name=tc["name"], tool_call_id=tc["id"]))
+    return {"messages": tool_messages}
+
+# 5. Define Custom Router
+def route_assistant(state: MessagesState):
+    messages = state.get("messages", [])
+    if not messages:
+        return END
+    last_message = messages[-1]
+    if not hasattr(last_message, "tool_calls") or not last_message.tool_calls:
+        return END
+    
+    tc_names = [tc["name"] for tc in last_message.tool_calls]
+    if "call_data_editor" in tc_names:
+        return "editor_subagent"
+    elif "call_sample_generator" in tc_names:
+        return "generator_subagent"
+    else:
+        return "assistant_tools"
+
+# 6. Create Main Database Assistant Graph
 assistant_node = create_agent_node(system_prompt=assistant_system_prompt, node_tools=assistant_tools)
 main_workflow = StateGraph(MessagesState)
 main_workflow.add_node('database_assistant_agent', assistant_node)
-main_workflow.add_node('assistant_tools', ToolNode(assistant_tools))
+main_workflow.add_node('assistant_tools', ToolNode(base_assistant_tools))
+main_workflow.add_node('editor_subagent', editor_subagent_node)
+main_workflow.add_node('generator_subagent', generator_subagent_node)
+
 main_workflow.add_edge(START, 'database_assistant_agent')
+
 main_workflow.add_conditional_edges(
     'database_assistant_agent', 
-    tools_condition,
-    {'tools': 'assistant_tools', END: END}
+    route_assistant,
+    {
+        'assistant_tools': 'assistant_tools',
+        'editor_subagent': 'editor_subagent',
+        'generator_subagent': 'generator_subagent',
+        END: END
+    }
 )
+
 main_workflow.add_edge('assistant_tools', 'database_assistant_agent')
+main_workflow.add_edge('editor_subagent', 'database_assistant_agent')
+main_workflow.add_edge('generator_subagent', 'database_assistant_agent')
 
 # Implement SqliteSaver Checkpointer
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -88,4 +146,3 @@ conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 memory = SqliteSaver(conn)
 
 agent = main_workflow.compile(checkpointer=memory)
-

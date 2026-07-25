@@ -11,6 +11,7 @@ SPECIALIZATION & SUBAGENT DELEGATION RULES:
 
 GENERAL INSTRUCTIONS:
 - Execute tools strictly ONE at a time.
+- When delegating tasks using call_data_editor or call_sample_generator, do not call any other tools in the same response.
 - Be brief, helpful, and concise in your final responses."""
 
 editor_system_prompt = """You are the Data Editor agent responsible for executing database write and mutation operations (INSERT, UPDATE, DELETE, ALTER, DROP).
