@@ -132,6 +132,12 @@ class AgentSubagentResultEvent(ChatEvent):
     event_type: str = field(default='agent_subagent_result', init=False)
 
 @dataclass
+class AgentSubagentErrorEvent(ChatEvent):
+    subagent_name: str
+    error: str
+    event_type: str = field(default='agent_subagent_error', init=False)
+
+@dataclass
 class AgentSubagentMessageChunkEvent(ChatEvent):
     subagent_name: str
     chunk: str
@@ -143,6 +149,14 @@ class AgentSubagentToolRequestEvent(ChatEvent):
     tool_name: str
     arguments: Dict[str, Any]
     event_type: str = field(default='agent_subagent_tool_request', init=False)
+
+@dataclass
+class AgentSubagentToolErrorEvent(ChatEvent):
+    subagent_name: str
+    tool_name: str
+    arguments: Dict[str, Any]
+    error: str
+    event_type: str = field(default='agent_subagent_tool_error', init=False)
 
 @dataclass
 class AgentSubagentToolResultEvent(ChatEvent):
@@ -310,7 +324,7 @@ class ChatAgent:
         """
         active_tools: Dict[str, Dict[str, Any]] = {}
         current_msg_buffer = ''
-        pending_tool_errors: List[AgentToolErrorEvent] = []
+        pending_tool_errors: List[ChatEvent] = []
         
         try:
             self._emit(AgentThinkingEvent())
@@ -373,6 +387,18 @@ class ChatAgent:
                                 tool_name=t_name,
                                 result=tool_output
                             ))
+                        elif data['event'] == 'tool-error':
+                            tool_call_id = data.get('tool_call_id')
+                            active_tool = active_tools.pop(tool_call_id, {}) if tool_call_id else {}
+                            t_name = active_tool.get('tool_name', 'Unknown')
+                            t_input = active_tool.get('input', {})
+                            err_msg = str(data.get('message') or data.get('error') or "Tool Failed")
+                            pending_tool_errors.append(AgentSubagentToolErrorEvent(
+                                subagent_name=subagent_name,
+                                tool_name=t_name,
+                                arguments=t_input,
+                                error=err_msg
+                            ))
                     else:
                         if data['event'] == 'tool-started':
                             tool_name = data['tool_name']
@@ -422,7 +448,7 @@ class ChatAgent:
                     tool_name = data.get('tool_name', 'Unknown')
                     s_name = "Data Editor" if tool_name == "call_data_editor" else ("Sample Data Generator" if tool_name == "call_sample_generator" else tool_name)
                     err_msg = str(data.get('error') or "Subagent execution failed")
-                    self._emit(AgentSubagentResultEvent(subagent_name=s_name, result=f"Error: {err_msg}"))
+                    self._emit(AgentSubagentErrorEvent(subagent_name=s_name, error=err_msg))
                     self._emit(AgentThinkingEvent())
 
             if getattr(stream, 'interrupted', False):
