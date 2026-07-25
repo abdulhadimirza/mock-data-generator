@@ -11,7 +11,7 @@ fake = Faker()
 @tool()
 def generate_mock_records(table_name: str, num_records: int = 5, custom_rules: Optional[str] = None) -> str:
     """
-    Generate synthetic mock data records for a specified database table based on its schema and foreign key constraints.
+    Generate synthetic mock data records (using Faker library) for a specified database table based on its schema and foreign key constraints.
     Returns a JSON string containing the generated records ready for inspection or batch insertion.
     
     Args:

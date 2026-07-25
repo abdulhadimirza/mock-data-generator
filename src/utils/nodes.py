@@ -5,8 +5,6 @@ from langchain_core.messages import SystemMessage
 from langchain_deepseek import ChatDeepSeek
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-from .state import AgentState
-
 deepseek = ChatDeepSeek(
     api_key=os.environ.get('DEEPSEEK_API_KEY') or 'dummy-key',
     model=os.environ.get('DEEPSEEK_MODEL') or 'deepseek-v4-flash',
