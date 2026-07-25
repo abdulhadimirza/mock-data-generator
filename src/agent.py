@@ -7,6 +7,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.config import get_stream_writer
 
 from utils.tools import assistant_tools as base_assistant_tools, editor_tools, generator_tools
 from utils.nodes import create_agent_node
@@ -69,10 +70,33 @@ def editor_subagent_node(state: MessagesState, config: Optional[RunnableConfig] 
         for tc in last_message.tool_calls:
             if tc["name"] == "call_data_editor":
                 query = tc["args"].get("query", "")
-                result = data_editor_graph.invoke({"messages": [("user", query)]}, config)
-                res_messages = result.get("messages", [])
-                content = res_messages[-1].content if res_messages else "Data Editor task completed."
-                tool_messages.append(ToolMessage(content=content, name=tc["name"], tool_call_id=tc["id"]))
+                
+                try:
+                    writer = get_stream_writer()
+                    writer({"event": "subagent_start", "tool_name": tc["name"], "input": tc["args"], "tool_call_id": tc["id"]})
+                except Exception:
+                    pass
+
+                try:
+                    result = data_editor_graph.invoke({"messages": [("user", query)]}, config)
+                    res_messages = result.get("messages", [])
+                    content = res_messages[-1].content if res_messages else "Data Editor task completed."
+                    
+                    try:
+                        writer = get_stream_writer()
+                        writer({"event": "subagent_end", "tool_name": tc["name"], "output": content, "tool_call_id": tc["id"]})
+                    except Exception:
+                        pass
+                        
+                    tool_messages.append(ToolMessage(content=content, name=tc["name"], tool_call_id=tc["id"]))
+                except Exception as e:
+                    try:
+                        writer = get_stream_writer()
+                        writer({"event": "subagent_error", "tool_name": tc["name"], "error": str(e), "tool_call_id": tc["id"]})
+                    except Exception:
+                        pass
+                    raise e
+
     return {"messages": tool_messages}
 
 def generator_subagent_node(state: MessagesState, config: Optional[RunnableConfig] = None):
@@ -90,10 +114,33 @@ def generator_subagent_node(state: MessagesState, config: Optional[RunnableConfi
                 prompt = f"Generate mock data for table '{target_table}'."
                 if requirements:
                     prompt += f" Requirements/Rules: {requirements}"
-                result = sample_generator_graph.invoke({"messages": [("user", prompt)]}, config)
-                res_messages = result.get("messages", [])
-                content = res_messages[-1].content if res_messages else "Sample Data Generator task completed."
-                tool_messages.append(ToolMessage(content=content, name=tc["name"], tool_call_id=tc["id"]))
+                
+                try:
+                    writer = get_stream_writer()
+                    writer({"event": "subagent_start", "tool_name": tc["name"], "input": tc["args"], "tool_call_id": tc["id"]})
+                except Exception:
+                    pass
+
+                try:
+                    result = sample_generator_graph.invoke({"messages": [("user", prompt)]}, config)
+                    res_messages = result.get("messages", [])
+                    content = res_messages[-1].content if res_messages else "Sample Data Generator task completed."
+                    
+                    try:
+                        writer = get_stream_writer()
+                        writer({"event": "subagent_end", "tool_name": tc["name"], "output": content, "tool_call_id": tc["id"]})
+                    except Exception:
+                        pass
+                        
+                    tool_messages.append(ToolMessage(content=content, name=tc["name"], tool_call_id=tc["id"]))
+                except Exception as e:
+                    try:
+                        writer = get_stream_writer()
+                        writer({"event": "subagent_error", "tool_name": tc["name"], "error": str(e), "tool_call_id": tc["id"]})
+                    except Exception:
+                        pass
+                    raise e
+
     return {"messages": tool_messages}
 
 # 5. Define Custom Router

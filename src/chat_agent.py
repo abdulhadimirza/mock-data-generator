@@ -16,11 +16,41 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Callable
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, BaseMessage
 from langgraph.prebuilt import ToolCallTransformer
+from langgraph.stream import StreamTransformer, StreamChannel
 from langgraph.errors import GraphRecursionError, GraphInterrupt
 from langgraph.types import Command
 from langchain_core.runnables import RunnableConfig
 
 from agent import agent
+
+class SubagentTransformer(StreamTransformer):
+    required_stream_modes = ("custom",)
+    
+    def __init__(self, scope: tuple[str, ...] = ()):
+        super().__init__(scope)
+        self.subagent_start = StreamChannel("subagent_start")
+        self.subagent_end = StreamChannel("subagent_end")
+        self.subagent_error = StreamChannel("subagent_error")
+
+    def init(self) -> dict:
+        return {
+            "subagent_start": self.subagent_start,
+            "subagent_end": self.subagent_end,
+            "subagent_error": self.subagent_error
+        }
+
+    def process(self, event) -> bool:
+        if event["method"] == "custom":
+            data = event["params"]["data"]
+            if isinstance(data, dict):
+                event_name = data.get("event")
+                if event_name == "subagent_start":
+                    self.subagent_start.push(data)
+                elif event_name == "subagent_end":
+                    self.subagent_end.push(data)
+                elif event_name == "subagent_error":
+                    self.subagent_error.push(data)
+        return True
 
 @dataclass
 class ChatEvent:
@@ -278,6 +308,35 @@ class ChatAgent:
                         t_input = active_tool.get('input', {})
                         err_msg = str(data.get('message') or data.get('error') or "Tool Failed")
                         pending_tool_errors.append(AgentToolErrorEvent(tool_name=t_name, arguments=t_input, error=err_msg))
+                elif event['method'] == 'custom:subagent_start':
+                    data = event['params']['data']
+                    tool_name = data.get('tool_name', 'Unknown')
+                    tool_input = data.get('input', {})
+                    tool_call_id = data.get('tool_call_id')
+                    if tool_call_id:
+                        active_tools[tool_call_id] = {
+                            'tool_name': tool_name,
+                            'input': tool_input
+                        }
+                    self._emit(AgentToolRequestEvent(tool_name=tool_name, arguments=tool_input))
+                elif event['method'] == 'custom:subagent_end':
+                    data = event['params']['data']
+                    tool_call_id = data.get('tool_call_id')
+                    active_tool = active_tools.pop(tool_call_id, {}) if tool_call_id else {}
+                    t_name = active_tool.get('tool_name', data.get('tool_name', 'Unknown'))
+                    t_input = active_tool.get('input', {})
+                    tool_output = data.get('output', '')
+                    self._emit(AgentToolResultEvent(tool_name=t_name, arguments=t_input, result=tool_output))
+                    self._emit(AgentThinkingEvent())
+                elif event['method'] == 'custom:subagent_error':
+                    data = event['params']['data']
+                    tool_call_id = data.get('tool_call_id')
+                    active_tool = active_tools.pop(tool_call_id, {}) if tool_call_id else {}
+                    t_name = active_tool.get('tool_name', data.get('tool_name', 'Unknown'))
+                    t_input = active_tool.get('input', {})
+                    err_msg = str(data.get('error') or "Subagent execution failed")
+                    self._emit(AgentToolErrorEvent(tool_name=t_name, arguments=t_input, error=err_msg))
+                    self._emit(AgentThinkingEvent())
 
             if getattr(stream, 'interrupted', False):
                 # Stream was interrupted for human approval; discard transient tool errors
@@ -328,7 +387,7 @@ class ChatAgent:
             input_state,
             self.config,
             version='v3',
-            transformers=[ToolCallTransformer]
+            transformers=[ToolCallTransformer, SubagentTransformer]
         )
         self._process_stream(stream)
         
@@ -340,7 +399,7 @@ class ChatAgent:
             Command(resume=resume_data),
             self.config,
             version='v3',
-            transformers=[ToolCallTransformer]
+            transformers=[ToolCallTransformer, SubagentTransformer]
         )
         self._process_stream(stream)
         

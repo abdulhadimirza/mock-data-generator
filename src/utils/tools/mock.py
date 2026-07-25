@@ -1,10 +1,10 @@
 import json
 import random
-from typing import Optional, Any
+from typing import Optional
 from faker import Faker
 from langchain_core.tools import tool, ToolException
-
 from database import get_readonly_connection, get_db_connection
+from .helpers import verify_table_exists
 
 fake = Faker()
 
@@ -29,13 +29,11 @@ def generate_mock_records(table_name: str, num_records: int = 5, custom_rules: O
                 pass
 
         with get_readonly_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Verify table exists
-            cursor.execute('SELECT name FROM sqlite_master WHERE type="table" AND name=?;', (table_name,))
-            if not cursor.fetchone():
+            if not verify_table_exists(conn, table_name):
                 return f"Table '{table_name}' does not exist in the database."
                 
+            cursor = conn.cursor()
+            
             # Get table schema
             cursor.execute(f'PRAGMA table_info({table_name});')
             columns_info = cursor.fetchall()
@@ -68,7 +66,6 @@ def generate_mock_records(table_name: str, num_records: int = 5, custom_rules: O
                     col_name = col['name']
                     col_type = col['type'].upper()
                     is_pk = col['pk'] > 0
-                    not_null = col['notnull'] == 1
                     
                     # Skip autoincrement primary key columns
                     if is_pk and 'INT' in col_type:
@@ -161,13 +158,10 @@ def batch_insert_mock_data(table_name: str, records_json: str) -> str:
             return "No records provided for batch insertion."
 
         with get_db_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Verify table exists
-            cursor.execute('SELECT name FROM sqlite_master WHERE type="table" AND name=?;', (table_name,))
-            if not cursor.fetchone():
+            if not verify_table_exists(conn, table_name):
                 return f"Table '{table_name}' does not exist."
                 
+            cursor = conn.cursor()
             cols = list(records[0].keys())
             cols_str = ", ".join(cols)
             placeholders = ", ".join(["?"] * len(cols))
@@ -183,6 +177,3 @@ def batch_insert_mock_data(table_name: str, records_json: str) -> str:
 
     except Exception as e:
         raise ToolException(f"Failed to batch insert mock data into '{table_name}': {e}")
-
-generate_mock_records.handle_tool_error = True
-batch_insert_mock_data.handle_tool_error = True
