@@ -98,7 +98,7 @@ def editor_subagent_node(state: MessagesState, config: Optional[RunnableConfig] 
                         writer({"event": "subagent_error", "tool_name": tc["name"], "error": str(e), "tool_call_id": tc["id"]})
                     except Exception:
                         pass
-                    raise e
+                    tool_messages.append(ToolMessage(content=f"Subagent execution failed: {str(e)}", name=tc["name"], tool_call_id=tc["id"]))
 
     return {"messages": tool_messages}
 
@@ -144,7 +144,7 @@ def generator_subagent_node(state: MessagesState, config: Optional[RunnableConfi
                         writer({"event": "subagent_error", "tool_name": tc["name"], "error": str(e), "tool_call_id": tc["id"]})
                     except Exception:
                         pass
-                    raise e
+                    tool_messages.append(ToolMessage(content=f"Subagent execution failed: {str(e)}", name=tc["name"], tool_call_id=tc["id"]))
 
     return {"messages": tool_messages}
 
