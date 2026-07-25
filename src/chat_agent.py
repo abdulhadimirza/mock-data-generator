@@ -13,11 +13,11 @@ warnings.filterwarnings('ignore', category=LangChainBetaWarning)
 
 from uuid import uuid4
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Callable
+from typing import List, Dict, Any, Callable, Optional
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, BaseMessage
 from langgraph.prebuilt import ToolCallTransformer
 from langgraph.stream import StreamTransformer, StreamChannel
-from langgraph.errors import GraphRecursionError, GraphInterrupt
+from langgraph.errors import GraphRecursionError
 from langgraph.types import Command
 from langchain_core.runnables import RunnableConfig
 
@@ -116,6 +116,40 @@ class AgentTurnCompleteEvent(ChatEvent):
 class AgentErrorEvent(ChatEvent):
     error: str
     event_type: str = field(default='agent_error', init=False)
+
+# --- Subagent Specific Events ---
+
+@dataclass
+class AgentSubagentStartEvent(ChatEvent):
+    subagent_name: str
+    arguments: Dict[str, Any]
+    event_type: str = field(default='agent_subagent_start', init=False)
+
+@dataclass
+class AgentSubagentResultEvent(ChatEvent):
+    subagent_name: str
+    result: str
+    event_type: str = field(default='agent_subagent_result', init=False)
+
+@dataclass
+class AgentSubagentMessageChunkEvent(ChatEvent):
+    subagent_name: str
+    chunk: str
+    event_type: str = field(default='agent_subagent_message_chunk', init=False)
+
+@dataclass
+class AgentSubagentToolRequestEvent(ChatEvent):
+    subagent_name: str
+    tool_name: str
+    arguments: Dict[str, Any]
+    event_type: str = field(default='agent_subagent_tool_request', init=False)
+
+@dataclass
+class AgentSubagentToolResultEvent(ChatEvent):
+    subagent_name: str
+    tool_name: str
+    result: str
+    event_type: str = field(default='agent_subagent_tool_result', init=False)
 
 class ChatAgent:
     """
@@ -225,12 +259,37 @@ class ChatAgent:
         """
         self._listeners.append(listener)
         
+    def _get_subagent_name(self, namespace: List[str]) -> Optional[str]:
+        for ns in namespace:
+            name = ns.split(':')[0]
+            if name in ('editor_subagent_graph', 'editor_subagent', 'call_data_editor'):
+                return 'Data Editor'
+            elif name in ('generator_subagent_graph', 'generator_subagent', 'call_sample_generator'):
+                return 'Sample Data Generator'
+        return None
+
+    def _format_subagent_output(self, raw_output: Any) -> str:
+        if isinstance(raw_output, str):
+            return raw_output
+        elif isinstance(raw_output, list):
+            text_parts = []
+            for item in raw_output:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text_parts.append(item.get("text", ""))
+                elif isinstance(item, str):
+                    text_parts.append(item)
+                else:
+                    text_parts.append(str(item))
+            return "\n".join(text_parts) if text_parts else str(raw_output)
+        else:
+            return str(raw_output)
+
     def _emit(self, event: ChatEvent) -> None:
         """
         Internal method to add an event to history and notify listeners.
         Note: Chunk events are usually just emitted, while full messages are saved to history.
         """
-        if not isinstance(event, (AgentMessageChunkEvent, AgentThinkingEvent)):
+        if not isinstance(event, (AgentMessageChunkEvent, AgentSubagentMessageChunkEvent, AgentThinkingEvent)):
             self.history.append(event)
             
         for listener in self._listeners:
@@ -257,85 +316,113 @@ class ChatAgent:
             self._emit(AgentThinkingEvent())
             
             for event in stream:
+                namespace = event.get('params', {}).get('namespace', [])
+                subagent_name = self._get_subagent_name(namespace)
+
                 if event['method'] == 'messages':
                     payload_dict = event['params']['data'][0]
                     event_type = payload_dict['event']
 
-                    if event_type == 'content-block-start':
-                        block_type = payload_dict['content']['type']
-                        if block_type == 'text':
-                            self._emit(AgentMessageStartEvent())
-                            current_msg_buffer = ''
-                    elif event_type == 'content-block-delta':
-                        delta = payload_dict['delta']
-                        if delta['type'] == 'text-delta':
-                            text_chunk = delta['text']
-                            self._emit(AgentMessageChunkEvent(chunk=text_chunk))
-                            current_msg_buffer += text_chunk
-                    elif event_type == 'content-block-finish':
-                        if current_msg_buffer:
-                            self._emit(AgentMessageCompleteEvent(content=current_msg_buffer))
-                            current_msg_buffer = ''
+                    if subagent_name:
+                        if event_type == 'content-block-delta':
+                            delta = payload_dict['delta']
+                            if delta.get('type') == 'text-delta':
+                                text_chunk = delta['text']
+                                self._emit(AgentSubagentMessageChunkEvent(subagent_name=subagent_name, chunk=text_chunk))
+                    else:
+                        if event_type == 'content-block-start':
+                            block_type = payload_dict['content']['type']
+                            if block_type == 'text':
+                                self._emit(AgentMessageStartEvent())
+                                current_msg_buffer = ''
+                        elif event_type == 'content-block-delta':
+                            delta = payload_dict['delta']
+                            if delta.get('type') == 'text-delta':
+                                text_chunk = delta['text']
+                                self._emit(AgentMessageChunkEvent(chunk=text_chunk))
+                                current_msg_buffer += text_chunk
+                        elif event_type == 'content-block-finish':
+                            if current_msg_buffer:
+                                self._emit(AgentMessageCompleteEvent(content=current_msg_buffer))
+                                current_msg_buffer = ''
                 elif event['method'] == 'tools':
                     data = event['params']['data']
-                    if data['event'] == 'tool-started':
-                        tool_name = data['tool_name']
-                        tool_input = data['input']
-                        tool_call_id = data['tool_call_id']
-                        active_tools[tool_call_id] = {
-                            'tool_name': tool_name,
-                            'input': tool_input
-                        }
-                        self._emit(AgentToolRequestEvent(tool_name=tool_name, arguments=tool_input))
-                    elif data['event'] == 'tool-finished':
-                        tool_message = data['output']
-                        tool_output = tool_message.content if hasattr(tool_message, 'content') else str(tool_message)
-                        tool_call_id = data['tool_call_id']
-                        active_tool = active_tools.pop(tool_call_id, {})
-                        t_name = active_tool.get('tool_name', 'Unknown')
-                        t_input = active_tool.get('input', {})
-                        
-                        if getattr(tool_message, 'status', 'success') == 'error':
-                            self._emit(AgentToolErrorEvent(tool_name=t_name, arguments=t_input, error=tool_output))
-                        else:
-                            self._emit(AgentToolResultEvent(tool_name=t_name, arguments=t_input, result=tool_output))
+                    if subagent_name:
+                        if data['event'] == 'tool-started':
+                            tool_name = data['tool_name']
+                            tool_input = data['input']
+                            tool_call_id = data.get('tool_call_id')
+                            if tool_call_id:
+                                active_tools[tool_call_id] = {
+                                    'tool_name': tool_name,
+                                    'input': tool_input
+                                }
+                            self._emit(AgentSubagentToolRequestEvent(
+                                subagent_name=subagent_name,
+                                tool_name=tool_name,
+                                arguments=tool_input
+                            ))
+                        elif data['event'] == 'tool-finished':
+                            tool_message = data['output']
+                            tool_output = tool_message.content if hasattr(tool_message, 'content') else str(tool_message)
+                            tool_call_id = data.get('tool_call_id')
+                            active_tool = active_tools.pop(tool_call_id, {}) if tool_call_id else {}
+                            t_name = active_tool.get('tool_name', data.get('tool_name', 'Unknown'))
+                            self._emit(AgentSubagentToolResultEvent(
+                                subagent_name=subagent_name,
+                                tool_name=t_name,
+                                result=tool_output
+                            ))
+                    else:
+                        if data['event'] == 'tool-started':
+                            tool_name = data['tool_name']
+                            tool_input = data['input']
+                            tool_call_id = data['tool_call_id']
+                            active_tools[tool_call_id] = {
+                                'tool_name': tool_name,
+                                'input': tool_input
+                            }
+                            self._emit(AgentToolRequestEvent(tool_name=tool_name, arguments=tool_input))
+                        elif data['event'] == 'tool-finished':
+                            tool_message = data['output']
+                            tool_output = tool_message.content if hasattr(tool_message, 'content') else str(tool_message)
+                            tool_call_id = data['tool_call_id']
+                            active_tool = active_tools.pop(tool_call_id, {})
+                            t_name = active_tool.get('tool_name', 'Unknown')
+                            t_input = active_tool.get('input', {})
                             
-                        self._emit(AgentThinkingEvent())
-                    elif data['event'] == 'tool-error':
-                        tool_call_id = data.get('tool_call_id')
-                        active_tool = active_tools.pop(tool_call_id, {}) if tool_call_id else {}
-                        t_name = active_tool.get('tool_name', 'Unknown')
-                        t_input = active_tool.get('input', {})
-                        err_msg = str(data.get('message') or data.get('error') or "Tool Failed")
-                        pending_tool_errors.append(AgentToolErrorEvent(tool_name=t_name, arguments=t_input, error=err_msg))
+                            if getattr(tool_message, 'status', 'success') == 'error':
+                                self._emit(AgentToolErrorEvent(tool_name=t_name, arguments=t_input, error=tool_output))
+                            else:
+                                self._emit(AgentToolResultEvent(tool_name=t_name, arguments=t_input, result=tool_output))
+                                
+                            self._emit(AgentThinkingEvent())
+                        elif data['event'] == 'tool-error':
+                            tool_call_id = data.get('tool_call_id')
+                            active_tool = active_tools.pop(tool_call_id, {}) if tool_call_id else {}
+                            t_name = active_tool.get('tool_name', 'Unknown')
+                            t_input = active_tool.get('input', {})
+                            err_msg = str(data.get('message') or data.get('error') or "Tool Failed")
+                            pending_tool_errors.append(AgentToolErrorEvent(tool_name=t_name, arguments=t_input, error=err_msg))
                 elif event['method'] == 'custom:subagent_start':
                     data = event['params']['data']
                     tool_name = data.get('tool_name', 'Unknown')
                     tool_input = data.get('input', {})
-                    tool_call_id = data.get('tool_call_id')
-                    if tool_call_id:
-                        active_tools[tool_call_id] = {
-                            'tool_name': tool_name,
-                            'input': tool_input
-                        }
-                    self._emit(AgentToolRequestEvent(tool_name=tool_name, arguments=tool_input))
+                    s_name = "Data Editor" if tool_name == "call_data_editor" else ("Sample Data Generator" if tool_name == "call_sample_generator" else tool_name)
+                    self._emit(AgentSubagentStartEvent(subagent_name=s_name, arguments=tool_input))
                 elif event['method'] == 'custom:subagent_end':
                     data = event['params']['data']
-                    tool_call_id = data.get('tool_call_id')
-                    active_tool = active_tools.pop(tool_call_id, {}) if tool_call_id else {}
-                    t_name = active_tool.get('tool_name', data.get('tool_name', 'Unknown'))
-                    t_input = active_tool.get('input', {})
-                    tool_output = data.get('output', '')
-                    self._emit(AgentToolResultEvent(tool_name=t_name, arguments=t_input, result=tool_output))
+                    tool_name = data.get('tool_name', 'Unknown')
+                    s_name = "Data Editor" if tool_name == "call_data_editor" else ("Sample Data Generator" if tool_name == "call_sample_generator" else tool_name)
+                    formatted_result = self._format_subagent_output(data.get('output', ''))
+                    self._emit(AgentSubagentResultEvent(subagent_name=s_name, result=formatted_result))
                     self._emit(AgentThinkingEvent())
                 elif event['method'] == 'custom:subagent_error':
                     data = event['params']['data']
-                    tool_call_id = data.get('tool_call_id')
-                    active_tool = active_tools.pop(tool_call_id, {}) if tool_call_id else {}
-                    t_name = active_tool.get('tool_name', data.get('tool_name', 'Unknown'))
-                    t_input = active_tool.get('input', {})
+                    tool_name = data.get('tool_name', 'Unknown')
+                    s_name = "Data Editor" if tool_name == "call_data_editor" else ("Sample Data Generator" if tool_name == "call_sample_generator" else tool_name)
                     err_msg = str(data.get('error') or "Subagent execution failed")
-                    self._emit(AgentToolErrorEvent(tool_name=t_name, arguments=t_input, error=err_msg))
+                    self._emit(AgentSubagentResultEvent(subagent_name=s_name, result=f"Error: {err_msg}"))
                     self._emit(AgentThinkingEvent())
 
             if getattr(stream, 'interrupted', False):

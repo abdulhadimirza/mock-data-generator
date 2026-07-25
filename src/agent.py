@@ -8,6 +8,7 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.config import get_stream_writer
+from langgraph.errors import GraphInterrupt
 
 from utils.tools import assistant_tools as base_assistant_tools, editor_tools, generator_tools
 from utils.nodes import create_agent_node
@@ -21,7 +22,7 @@ editor_workflow.add_node('tools', ToolNode(editor_tools))
 editor_workflow.add_edge(START, 'agent')
 editor_workflow.add_conditional_edges('agent', tools_condition, {'tools': 'tools', END: END})
 editor_workflow.add_edge('tools', 'agent')
-data_editor_graph = editor_workflow.compile()
+data_editor_graph = editor_workflow.compile(name="editor_subagent_graph")
 
 # 2. Create Sample Data Generator Subgraph
 generator_node = create_agent_node(system_prompt=generator_system_prompt, node_tools=generator_tools)
@@ -31,7 +32,7 @@ generator_workflow.add_node('tools', ToolNode(generator_tools))
 generator_workflow.add_edge(START, 'agent')
 generator_workflow.add_conditional_edges('agent', tools_condition, {'tools': 'tools', END: END})
 generator_workflow.add_edge('tools', 'agent')
-sample_generator_graph = generator_workflow.compile()
+sample_generator_graph = generator_workflow.compile(name="generator_subagent_graph")
 
 # 3. Define Subagent Schema Tools for Assistant
 @tool
@@ -89,6 +90,8 @@ def editor_subagent_node(state: MessagesState, config: Optional[RunnableConfig] 
                         pass
                         
                     tool_messages.append(ToolMessage(content=content, name=tc["name"], tool_call_id=tc["id"]))
+                except GraphInterrupt as e:
+                    raise e
                 except Exception as e:
                     try:
                         writer = get_stream_writer()
@@ -133,6 +136,8 @@ def generator_subagent_node(state: MessagesState, config: Optional[RunnableConfi
                         pass
                         
                     tool_messages.append(ToolMessage(content=content, name=tc["name"], tool_call_id=tc["id"]))
+                except GraphInterrupt as e:
+                    raise e
                 except Exception as e:
                     try:
                         writer = get_stream_writer()

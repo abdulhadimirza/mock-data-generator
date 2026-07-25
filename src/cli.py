@@ -28,6 +28,11 @@ from chat_agent import (
     UserMessageEvent,
     AgentTurnCompleteEvent,
     AgentErrorEvent,
+    AgentSubagentStartEvent,
+    AgentSubagentResultEvent,
+    AgentSubagentMessageChunkEvent,
+    AgentSubagentToolRequestEvent,
+    AgentSubagentToolResultEvent,
 )
 
 console = Console()
@@ -84,6 +89,44 @@ def render_agent_error(console: Console, error: str):
         f"[bold red]Agent Error:[/bold red]\n[dim]{error}[/dim]",
         title="* Error",
         border_style='red'
+    ))
+
+def render_subagent_start(console: Console, subagent_name: str, args: dict):
+    try:
+        args_str = json.dumps(args, indent=2)
+    except Exception:
+        args_str = str(args)
+        
+    console.print(Panel(
+        f"[bold magenta]Delegated Work to Subagent:[/bold magenta] {subagent_name}\n\n[bold green]Task Parameters:[/bold green]\n[dim]{args_str}[/dim]",
+        title=f"🤖 Subagent Delegated: {subagent_name}",
+        border_style='magenta'
+    ))
+
+def render_subagent_result(console: Console, subagent_name: str, result: str):
+    console.print(Panel(
+        f"[bold magenta]Subagent Completed Task:[/bold magenta] {subagent_name}\n\n[bold green]Result Output:[/bold green]\n{result}",
+        title=f"✅ Subagent Finished: {subagent_name}",
+        border_style='magenta'
+    ))
+
+def render_subagent_tool_request(console: Console, subagent_name: str, tool_name: str, args: dict):
+    try:
+        args_str = json.dumps(args, indent=2)
+    except Exception:
+        args_str = str(args)
+        
+    console.print(Panel(
+        f"[bold blue][Subagent: {subagent_name}] Tool Requested:[/bold blue] {tool_name}\n\n[bold green]Arguments:[/bold green]\n[dim]{args_str}[/dim]",
+        title=f"🛠️ [{subagent_name}] Tool Execution",
+        border_style='blue'
+    ))
+
+def render_subagent_tool_result(console: Console, subagent_name: str, tool_name: str, result: str):
+    console.print(Panel(
+        f"[bold blue][Subagent: {subagent_name}] Tool Responded:[/bold blue] {tool_name}\n\n[bold green]Result:[/bold green]\n[dim]{result}[/dim]",
+        title=f"🛠️ [{subagent_name}] Tool Result",
+        border_style='blue'
     ))
 
 class CLIRenderer:
@@ -175,6 +218,29 @@ class CLIRenderer:
             self.stop_live()
             render_tool_error(self.console, event.tool_name, event.error)
             self.full_response = ''
+
+        elif isinstance(event, AgentSubagentStartEvent):
+            self.stop_live()
+            if self.full_response:
+                self.console.print(Markdown(self.full_response))
+                self.full_response = ''
+            render_subagent_start(self.console, event.subagent_name, event.arguments)
+
+        elif isinstance(event, AgentSubagentResultEvent):
+            self.stop_live()
+            render_subagent_result(self.console, event.subagent_name, event.result)
+
+        elif isinstance(event, AgentSubagentMessageChunkEvent):
+            if self.live:
+                self.live.update(Spinner('dots', text=f"[dim][{event.subagent_name} Thinking...] {event.chunk.strip()[:40]}[/dim]"))
+
+        elif isinstance(event, AgentSubagentToolRequestEvent):
+            self.stop_live()
+            render_subagent_tool_request(self.console, event.subagent_name, event.tool_name, event.arguments)
+
+        elif isinstance(event, AgentSubagentToolResultEvent):
+            self.stop_live()
+            render_subagent_tool_result(self.console, event.subagent_name, event.tool_name, event.result)
 
         elif isinstance(event, AgentErrorEvent):
             self.stop_live()
