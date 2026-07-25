@@ -17,24 +17,18 @@ from rich.spinner import Spinner
 from chat_agent import (
     ChatAgent,
     ChatEvent,
-    AgentThinkingEvent,
-    AgentToolRequestEvent,
-    AgentToolResultEvent,
-    AgentToolErrorEvent,
-    AgentToolApprovalRequestEvent,
-    AgentMessageStartEvent,
-    AgentMessageChunkEvent,
-    AgentMessageCompleteEvent,
     UserMessageEvent,
-    AgentTurnCompleteEvent,
-    AgentErrorEvent,
-    AgentSubagentStartEvent,
-    AgentSubagentResultEvent,
-    AgentSubagentErrorEvent,
-    AgentSubagentMessageChunkEvent,
-    AgentSubagentToolRequestEvent,
-    AgentSubagentToolResultEvent,
-    AgentSubagentToolErrorEvent,
+    MessageStartEvent,
+    MessageChunkEvent,
+    MessageCompleteEvent,
+    ThinkingEvent,
+    ToolRequestEvent,
+    ToolResultEvent,
+    ToolErrorEvent,
+    ToolApprovalRequestEvent,
+    SubagentLifecycleEvent,
+    TurnCompleteEvent,
+    ErrorEvent,
 )
 
 console = Console()
@@ -159,9 +153,25 @@ class CLIRenderer:
         self.live = None
         self.full_response = ''
         self.awaiting_approval = False
+        
+        # Dispatcher Registry for event handling
+        self.handlers = {
+            UserMessageEvent: self._handle_user_message,
+            ThinkingEvent: self._handle_thinking,
+            MessageStartEvent: self._handle_message_start,
+            MessageChunkEvent: self._handle_message_chunk,
+            MessageCompleteEvent: self._handle_message_complete,
+            ToolRequestEvent: self._handle_tool_request,
+            ToolApprovalRequestEvent: self._handle_tool_approval_request,
+            ToolResultEvent: self._handle_tool_result,
+            ToolErrorEvent: self._handle_tool_error,
+            SubagentLifecycleEvent: self._handle_subagent_lifecycle,
+            ErrorEvent: self._handle_error,
+            TurnCompleteEvent: self._handle_turn_complete,
+        }
 
     def _debug(self, msg):
-        pass#print(msg)
+        pass
 
     def start_live(self):
         self._debug("start_live called")
@@ -181,109 +191,110 @@ class CLIRenderer:
             self.live = None
 
     def handle_event(self, event: ChatEvent):
-        self._debug(f"handle_event: {type(event).__name__}")
-        if isinstance(event, UserMessageEvent):
-            self.stop_live()
-            if event.is_history:
-                self.console.print(f"\n[bold green]You:[/bold green]\n{event.content}")
-                self.console.print("\n[bold blue]Assistant:[/bold blue]")
+        handler = self.handlers.get(type(event))
+        if handler:
+            handler(event)
 
-        elif isinstance(event, AgentThinkingEvent):
-            self.start_live()
-            self.live.update(Spinner('dots', text="[dim]Thinking...[/dim]"))
-            
-        elif isinstance(event, AgentMessageStartEvent):
-            self.full_response = ''
-            
-        elif isinstance(event, AgentMessageChunkEvent):
-            self.full_response += event.chunk
-            if not self.live:
-                self.start_live()
-                
-            term_height = shutil.get_terminal_size().lines
-            max_lines = max(5, term_height - 10)
-            
-            lines = self.full_response.split("\n")
-            if len(lines) > max_lines:
-                display_text = "...\n" + "\n".join(lines[-max_lines:])
-            else:
-                display_text = self.full_response
-                
-            self.live.update(Markdown(display_text + " ▌"))
-            
-        elif isinstance(event, AgentMessageCompleteEvent):
-            self.stop_live()
-            display_text = self.full_response if self.full_response else getattr(event, 'content', '')
-            if display_text:
-                self.console.print(Markdown(display_text))
-            self.full_response = ''
-            
-        elif isinstance(event, AgentToolRequestEvent):
-            self.stop_live()
-            if self.full_response:
-                self.console.print(Markdown(self.full_response))
-            render_tool_request(self.console, event.tool_name, event.arguments)
-            self.full_response = ''
-            
-        elif isinstance(event, AgentToolApprovalRequestEvent):
-            self.stop_live()
-            if self.full_response:
-                self.console.print(Markdown(self.full_response))
-            render_tool_approval_request(self.console, event.tool_name, event.arguments, event.message)
-            self.full_response = ''
-            self.awaiting_approval = True
+    def _handle_user_message(self, event: UserMessageEvent):
+        self.stop_live()
+        if event.is_history:
+            self.console.print(f"\n[bold green]You:[/bold green]\n{event.content}")
+            self.console.print("\n[bold blue]Assistant:[/bold blue]")
 
-        elif isinstance(event, AgentToolResultEvent):
-            self.stop_live()
-            render_tool_result(self.console, event.tool_name, event.result)
-            self.full_response = ''
-            
-        elif isinstance(event, AgentToolErrorEvent):
-            self.stop_live()
-            render_tool_error(self.console, event.tool_name, event.arguments, event.error)
+    def _handle_thinking(self, event: ThinkingEvent):
+        self.start_live()
+        self.live.update(Spinner('dots', text="[dim]Thinking...[/dim]"))
+
+    def _handle_message_start(self, event: MessageStartEvent):
+        if event.source == "Assistant":
             self.full_response = ''
 
-        elif isinstance(event, AgentSubagentStartEvent):
-            self.stop_live()
-            if self.full_response:
-                self.console.print(Markdown(self.full_response))
-                self.full_response = ''
-            render_subagent_start(self.console, event.subagent_name, event.arguments)
-
-        elif isinstance(event, AgentSubagentResultEvent):
-            self.stop_live()
-            render_subagent_result(self.console, event.subagent_name, event.result)
-
-        elif isinstance(event, AgentSubagentErrorEvent):
-            self.stop_live()
-            render_subagent_error(self.console, event.subagent_name, event.error)
-
-        elif isinstance(event, AgentSubagentMessageChunkEvent):
+    def _handle_message_chunk(self, event: MessageChunkEvent):
+        if event.source != "Assistant":
             if self.live:
-                self.live.update(Spinner('dots', text=f"[dim][{event.subagent_name} Thinking...] {event.chunk.strip()[:40]}[/dim]"))
+                self.live.update(Spinner('dots', text=f"[dim][{event.source} Thinking...] {event.chunk.strip()[:40]}[/dim]"))
+            return
 
-        elif isinstance(event, AgentSubagentToolRequestEvent):
-            self.stop_live()
-            render_subagent_tool_request(self.console, event.subagent_name, event.tool_name, event.arguments)
+        self.full_response += event.chunk
+        if not self.live:
+            self.start_live()
+            
+        term_height = shutil.get_terminal_size().lines
+        max_lines = max(5, term_height - 10)
+        
+        lines = self.full_response.split("\n")
+        if len(lines) > max_lines:
+            display_text = "...\n" + "\n".join(lines[-max_lines:])
+        else:
+            display_text = self.full_response
+            
+        self.live.update(Markdown(display_text + " ▌"))
 
-        elif isinstance(event, AgentSubagentToolResultEvent):
-            self.stop_live()
-            render_subagent_tool_result(self.console, event.subagent_name, event.tool_name, event.result)
+    def _handle_message_complete(self, event: MessageCompleteEvent):
+        self.stop_live()
+        display_text = self.full_response if self.full_response else getattr(event, 'content', '')
+        if display_text:
+            self.console.print(Markdown(display_text))
+        self.full_response = ''
 
-        elif isinstance(event, AgentSubagentToolErrorEvent):
-            self.stop_live()
-            render_subagent_tool_error(self.console, event.subagent_name, event.tool_name, event.arguments, event.error)
-
-        elif isinstance(event, AgentErrorEvent):
-            self.stop_live()
-            render_agent_error(self.console, event.error)
+    def _handle_tool_request(self, event: ToolRequestEvent):
+        self.stop_live()
+        if self.full_response:
+            self.console.print(Markdown(self.full_response))
             self.full_response = ''
+        
+        if event.source != "Assistant":
+            render_subagent_tool_request(self.console, event.source, event.tool_name, event.arguments)
+        else:
+            render_tool_request(self.console, event.tool_name, event.arguments)
 
-        elif isinstance(event, AgentTurnCompleteEvent):
-            self.stop_live()
-            if self.full_response:
-                self.console.print(Markdown(self.full_response))
+    def _handle_tool_approval_request(self, event: ToolApprovalRequestEvent):
+        self.stop_live()
+        if self.full_response:
+            self.console.print(Markdown(self.full_response))
             self.full_response = ''
+        render_tool_approval_request(self.console, event.tool_name, event.arguments, event.message)
+        self.awaiting_approval = True
+
+    def _handle_tool_result(self, event: ToolResultEvent):
+        self.stop_live()
+        if event.source != "Assistant":
+            render_subagent_tool_result(self.console, event.source, event.tool_name, str(event.result))
+        else:
+            render_tool_result(self.console, event.tool_name, str(event.result))
+        self.full_response = ''
+
+    def _handle_tool_error(self, event: ToolErrorEvent):
+        self.stop_live()
+        if event.source != "Assistant":
+            render_subagent_tool_error(self.console, event.source, event.tool_name, event.arguments, event.error)
+        else:
+            render_tool_error(self.console, event.tool_name, event.arguments, event.error)
+        self.full_response = ''
+
+    def _handle_subagent_lifecycle(self, event: SubagentLifecycleEvent):
+        self.stop_live()
+        if self.full_response:
+            self.console.print(Markdown(self.full_response))
+            self.full_response = ''
+            
+        if event.lifecycle_type == "start":
+            render_subagent_start(self.console, event.source, event.arguments or {})
+        elif event.lifecycle_type == "result":
+            render_subagent_result(self.console, event.source, event.result or "")
+        elif event.lifecycle_type == "error":
+            render_subagent_error(self.console, event.source, event.error or "")
+
+    def _handle_error(self, event: ErrorEvent):
+        self.stop_live()
+        render_agent_error(self.console, event.error)
+        self.full_response = ''
+
+    def _handle_turn_complete(self, event: TurnCompleteEvent):
+        self.stop_live()
+        if self.full_response:
+            self.console.print(Markdown(self.full_response))
+        self.full_response = ''
 
 @app.command()
 def main():
