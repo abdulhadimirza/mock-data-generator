@@ -76,6 +76,9 @@ def generate_mock_records(table_name: str, num_records: int = 5, custom_rules: O
                         rule_val = rules_dict[col_name]
                         if isinstance(rule_val, list):
                             record[col_name] = random.choice(rule_val)
+                        elif isinstance(rule_val, str) and hasattr(fake, rule_val) and callable(getattr(fake, rule_val)):
+                            val = getattr(fake, rule_val)()
+                            record[col_name] = val.replace('\n', ', ') if isinstance(val, str) else val
                         else:
                             record[col_name] = rule_val
                         continue
@@ -85,34 +88,13 @@ def generate_mock_records(table_name: str, num_records: int = 5, custom_rules: O
                         record[col_name] = random.choice(fk_map[col_name])
                         continue
 
-                    # 3. Semantic column name matching
+                    # 3. Dynamic Faker method lookup by column name
                     name_lower = col_name.lower()
-                    if name_lower == 'email':
-                        record[col_name] = fake.email()
-                    elif name_lower in ('name', 'full_name', 'user_name', 'username'):
-                        record[col_name] = fake.name()
-                    elif name_lower == 'first_name':
-                        record[col_name] = fake.first_name()
-                    elif name_lower == 'last_name':
-                        record[col_name] = fake.last_name()
-                    elif 'phone' in name_lower:
-                        record[col_name] = fake.phone_number()
-                    elif 'address' in name_lower:
-                        record[col_name] = fake.address().replace('\n', ', ')
-                    elif 'price' in name_lower or 'cost' in name_lower or 'amount' in name_lower or 'rate' in name_lower:
-                        record[col_name] = round(random.uniform(5.0, 499.99), 2)
-                    elif 'stock' in name_lower or 'quantity' in name_lower or 'count' in name_lower:
-                        record[col_name] = random.randint(1, 100)
-                    elif name_lower == 'status':
-                        record[col_name] = random.choice(['pending', 'shipped', 'delivered', 'active'])
-                    elif 'created_at' in name_lower or 'updated_at' in name_lower or 'timestamp' in name_lower or 'date' in name_lower:
-                        record[col_name] = fake.date_time_this_year().strftime('%Y-%m-%d %H:%M:%S')
-                    elif 'title' in name_lower:
-                        record[col_name] = fake.sentence(nb_words=4).rstrip('.')
-                    elif 'description' in name_lower:
-                        record[col_name] = fake.paragraph(nb_sentences=2)
+                    if hasattr(fake, name_lower) and callable(getattr(fake, name_lower)):
+                        val = getattr(fake, name_lower)()
+                        record[col_name] = val.replace('\n', ', ') if isinstance(val, str) else val
 
-                    # 4. Data type fallback
+                    # 4. Data type fallback (graceful degradation)
                     else:
                         if 'INT' in col_type:
                             record[col_name] = random.randint(1, 100)
@@ -120,6 +102,8 @@ def generate_mock_records(table_name: str, num_records: int = 5, custom_rules: O
                             record[col_name] = round(random.uniform(1.0, 100.0), 2)
                         elif 'BOOL' in col_type:
                             record[col_name] = random.choice([0, 1])
+                        elif any(t in col_type for t in ('DATE', 'TIME', 'TIMESTAMP')):
+                            record[col_name] = fake.date_time_this_year().strftime('%Y-%m-%d %H:%M:%S')
                         else:
                             record[col_name] = fake.word().capitalize()
 
