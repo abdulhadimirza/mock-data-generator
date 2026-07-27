@@ -130,12 +130,15 @@ class ErrorEvent(ChatEvent):
 
 
 DEFAULT_SUBAGENT_NAMES = {
-    'editor_subagent_graph': 'Data Editor',
-    'editor_subagent': 'Data Editor',
-    'call_data_editor': 'Data Editor',
+    'reader_subagent_graph': 'Database Reader',
+    'reader_subagent': 'Database Reader',
+    'call_database_reader': 'Database Reader',
     'generator_subagent_graph': 'Sample Data Generator',
     'generator_subagent': 'Sample Data Generator',
     'call_sample_generator': 'Sample Data Generator',
+    'editor_subagent_graph': 'Data Editor (Backup)',
+    'editor_subagent': 'Data Editor (Backup)',
+    'call_data_editor': 'Data Editor (Backup)',
 }
 
 

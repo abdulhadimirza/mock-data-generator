@@ -19,7 +19,7 @@ tools = [
 for t in tools:
     t.handle_tool_error = True
 
-assistant_tools = [
+reader_tools = [
     list_tables, 
     describe_table, 
     execute_read_query,
@@ -27,6 +27,9 @@ assistant_tools = [
     get_table_statistics,
     search_tables_by_keyword
 ]
+
+# Kept for backward compatibility and backup
+assistant_tools = reader_tools
 
 editor_tools = [
     analyze_query_impact,
@@ -52,6 +55,7 @@ __all__ = [
     "analyze_query_impact",
     "generate_mock_records",
     "batch_insert_mock_data",
+    "reader_tools",
     "assistant_tools",
     "editor_tools",
     "generator_tools",
