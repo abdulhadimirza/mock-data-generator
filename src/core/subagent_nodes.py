@@ -34,24 +34,8 @@ def create_subagent_node(
                         result = subgraph.invoke({'messages': [('user', prompt)]}, config)
                         res_messages = result.get('messages', [])
                         
-                        trace_lines = []
-                        for msg in res_messages:
-                            if isinstance(msg, AIMessage) and msg.tool_calls:
-                                for call in msg.tool_calls:
-                                    trace_lines.append(f"- Executed `{call['name']}` with args: {call['args']}")
-                            elif isinstance(msg, ToolMessage):
-                                res_str = str(msg.content)
-                                if len(res_str) > 200:
-                                    res_str = res_str[:200] + "... [truncated]"
-                                trace_lines.append(f"  Result: {res_str}")
-                                
-                        trace = "\n".join(trace_lines)
                         final_text = res_messages[-1].content if res_messages else default_completion_msg
-                        
-                        if trace:
-                            content = f"{final_text}\n\n### Execution Trace:\n{trace}"
-                        else:
-                            content = final_text
+                        content = final_text
                         
                         try:
                             writer = get_stream_writer()
