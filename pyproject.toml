@@ -1,7 +1,7 @@
 [project]
-name = "database-sandbox"
+name = "mock-data-generator"
 version = "0.1.0"
-description = "Add your description here"
+description = "Generates realistic, structured mock data for database development and testing."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
