@@ -65,6 +65,26 @@ def _get_table_schema_dict(cursor, table_name: str, create_sql: Optional[str] = 
     }
 
 @tool()
+def list_tables() -> str:
+    """Query the database to return only a list of available table names without full schemas. Ideal for table discovery or when only table names are needed."""
+    try:
+        with get_readonly_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT name FROM sqlite_master WHERE type="table";')
+            tables = []
+            for row in cursor.fetchall():
+                name = row['name']
+                if name and not name.startswith('sqlite_'):
+                    tables.append(name)
+            
+            if not tables:
+                return "No tables found in the database."
+                
+            return "\n".join(tables)
+    except Exception as e:
+        raise ToolException(f"Error reading tables: {e}")
+
+@tool()
 def get_full_schema() -> str:
     """Dumps the entire database schema (tables, column types, NOT NULL flags, primary keys, foreign keys, unique constraints) in a single JSON payload. Ideal for small/medium databases (< 15 tables)."""
     try:

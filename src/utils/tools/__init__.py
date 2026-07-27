@@ -1,4 +1,5 @@
 from .schema import (
+    list_tables,
     get_full_schema,
     get_tables_schema_with_deps,
 )
@@ -20,6 +21,7 @@ from .backup import (
 )
 
 tools = [
+    list_tables,
     get_full_schema,
     get_tables_schema_with_deps,
     execute_select_query,
@@ -36,6 +38,7 @@ for t in editor_tools:
     t.handle_tool_error = True
 
 reader_tools = [
+    list_tables,
     get_full_schema,
     get_tables_schema_with_deps,
     execute_select_query,
@@ -47,6 +50,7 @@ reader_tools = [
 assistant_tools = reader_tools
 
 generator_tools = [
+    list_tables,
     get_full_schema,
     get_tables_schema_with_deps,
     get_table_sample,
@@ -57,6 +61,7 @@ generator_tools = [
 ]
 
 __all__ = [
+    "list_tables",
     "get_full_schema",
     "get_tables_schema_with_deps",
     "execute_select_query",

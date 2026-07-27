@@ -1,15 +1,23 @@
 from typing import Optional
+from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from utils.tools import reader_tools
-from utils.nodes import create_agent_node
+from utils.nodes import get_llm
 from utils.prompts import reader_system_prompt
 
 # 1. Create Database Reader Subgraph
-reader_node = create_agent_node(system_prompt=reader_system_prompt, node_tools=reader_tools)
+def reader_node(state):
+    llm = get_llm(reader_tools)
+    state_messages = state.get("messages", []) if isinstance(state, dict) else getattr(state, "messages", [])
+    messages = [SystemMessage(content=reader_system_prompt)] + list(state_messages)
+    response = llm.invoke(messages)
+    return {"messages": [response]}
+
 reader_workflow = StateGraph(MessagesState)
+
 reader_workflow.add_node('agent', reader_node)
 reader_workflow.add_node('tools', ToolNode(reader_tools))
 reader_workflow.add_edge(START, 'agent')

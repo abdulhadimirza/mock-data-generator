@@ -1,6 +1,7 @@
+from langchain_core.messages import SystemMessage
 from langgraph.graph import StateGraph, MessagesState, START, END
 
-from utils.nodes import create_agent_node
+from utils.nodes import get_llm
 from utils.prompts import supervisor_system_prompt
 
 from subagents.reader import database_reader_graph, call_database_reader
@@ -38,11 +39,18 @@ generator_subagent_node = create_subagent_node(
     default_completion_msg="Sample Data Generator task completed."
 )
 
+def supervisor_node(state):
+    llm = get_llm(supervisor_tools)
+    state_messages = state.get("messages", []) if isinstance(state, dict) else getattr(state, "messages", [])
+    messages = [SystemMessage(content=supervisor_system_prompt)] + list(state_messages)
+    response = llm.invoke(messages)
+    return {"messages": [response]}
+
 def build_agent():
-    supervisor_node = create_agent_node(system_prompt=supervisor_system_prompt, node_tools=supervisor_tools)
     main_workflow = StateGraph(MessagesState)
     
     main_workflow.add_node('supervisor_agent', supervisor_node)
+
     main_workflow.add_node('reader_subagent', reader_subagent_node)
     main_workflow.add_node('generator_subagent', generator_subagent_node)
 

@@ -1,5 +1,4 @@
 import os
-import time
 
 from langchain_core.messages import SystemMessage
 from langchain_deepseek import ChatDeepSeek
@@ -28,42 +27,21 @@ gemini = ChatGoogleGenerativeAI(
 
 
 
-_rate_limit_reset_time = 0.0
+from typing import Optional, List, Any
 
-def create_agent_node(system_prompt: str, node_tools: list):
-    # Bind tools specific to this agent
-    primary = gemini.bind_tools(node_tools)
-    fallback = deepseek.bind_tools(node_tools)
-    
-    # Define the actual LangGraph node function
-    def node(state):
-        global _rate_limit_reset_time
-        
-        state_messages = state.get("messages", []) if isinstance(state, dict) else state.messages
-        messages = [SystemMessage(content=system_prompt)] + list(state_messages)
+def get_llm(tools: Optional[List[Any]] = None):
+    """
+    Returns a resilient LLM runnable with transparent fallback handling.
+    Uses Gemini as the primary LLM and DeepSeek as the fallback LLM.
+    If tools are provided, tools are bound to both primary and fallback models.
+    """
+    if tools:
+        primary = gemini.bind_tools(tools)
+        fallback = deepseek.bind_tools(tools)
+        return primary.with_fallbacks([fallback])
+    return gemini.with_fallbacks([deepseek])
 
-        current_time = time.time()
-        
-        if current_time < _rate_limit_reset_time:
-            response = fallback.invoke(messages)
-        else:
-            try:
-                response = primary.invoke(messages)
-            except Exception as e:
-                # langchain-google-genai wraps the APIError in a ChatGoogleGenerativeAIError.
-                # The original APIError is preserved in e.__cause__.
-                cause = getattr(e, "__cause__", None)
-                if (
-                    (cause and getattr(cause, "code", None) == 429) or 
-                    (cause and getattr(cause, "status", None) == 429) or 
-                    "429" in str(e)
-                ):
-                    _rate_limit_reset_time = time.time() + 60.0
-                    response = fallback.invoke(messages)
-                else:
-                    raise
-                    
-        return {"messages": [response]}
-        
-    return node
+
+
+
 

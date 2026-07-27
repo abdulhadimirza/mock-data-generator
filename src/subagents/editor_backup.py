@@ -1,14 +1,22 @@
+from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from utils.tools import editor_tools
-from utils.nodes import create_agent_node
+from utils.nodes import get_llm
 from utils.prompts import editor_system_prompt
 
 # 1. Create Data Editor Subgraph
-editor_node = create_agent_node(system_prompt=editor_system_prompt, node_tools=editor_tools)
+def editor_node(state):
+    llm = get_llm(editor_tools)
+    state_messages = state.get("messages", []) if isinstance(state, dict) else getattr(state, "messages", [])
+    messages = [SystemMessage(content=editor_system_prompt)] + list(state_messages)
+    response = llm.invoke(messages)
+    return {"messages": [response]}
+
 editor_workflow = StateGraph(MessagesState)
+
 editor_workflow.add_node('agent', editor_node)
 editor_workflow.add_node('tools', ToolNode(editor_tools))
 editor_workflow.add_edge(START, 'agent')
