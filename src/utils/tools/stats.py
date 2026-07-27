@@ -5,60 +5,19 @@ from database import get_readonly_connection
 from .helpers import verify_table_exists
 
 @tool()
-def get_column_distinct_values(table: str, column: str) -> str:
-    """Queries and returns the distinct categorical values in a specified column."""
+def get_table_row_count(table_name: str) -> str:
+    """Returns the exact row volume for a given table to verify population status."""
     try:
         with get_readonly_connection() as conn:
-            if not verify_table_exists(conn, table):
-                return f"Table '{table}' does not exist."
+            if not verify_table_exists(conn, table_name):
+                return f"Table '{table_name}' does not exist."
                 
             cursor = conn.cursor()
-            cursor.execute(f'PRAGMA table_info({table});')
-            columns = [row['name'] for row in cursor.fetchall()]
-            if column not in columns:
-                return f"Column '{column}' does not exist in table '{table}'."
-                
-            query = f'SELECT DISTINCT {column} FROM {table} LIMIT 100;'
-            cursor.execute(query)
-            rows = cursor.fetchall()
-            
-            if not rows:
-                return f"No values found in column '{column}'."
-                
-            values = [str(row[column]) for row in rows]
-            return "\n".join(values)
-    except Exception as e:
-        raise ToolException(f"Error getting distinct values for '{table}.{column}': {e}")
-
-@tool()
-def get_table_statistics(table: str) -> str:
-    """Returns row counts and basic bounds (min/max) for a specified table."""
-    try:
-        with get_readonly_connection() as conn:
-            if not verify_table_exists(conn, table):
-                return f"Table '{table}' does not exist."
-                
-            cursor = conn.cursor()
-            cursor.execute(f'PRAGMA table_info({table});')
-            columns = cursor.fetchall()
-            
-            cursor.execute(f'SELECT COUNT(*) as count FROM {table};')
+            cursor.execute(f'SELECT COUNT(*) as count FROM {table_name};')
             count = cursor.fetchone()['count']
-            
-            output = [f"Statistics for table '{table}':", f"Total Rows: {count}"]
-            
-            numeric_types = ('INTEGER', 'REAL', 'NUMERIC')
-            for col in columns:
-                col_name = col['name']
-                col_type = col['type'].upper()
-                if any(t in col_type for t in numeric_types):
-                    cursor.execute(f'SELECT MIN({col_name}) as min_val, MAX({col_name}) as max_val FROM {table};')
-                    stats = cursor.fetchone()
-                    output.append(f"  {col_name} ({col['type']}): MIN = {stats['min_val']}, MAX = {stats['max_val']}")
-                    
-            return "\n".join(output)
+            return f"Table '{table_name}' total row count: {count}"
     except Exception as e:
-        raise ToolException(f"Error getting statistics for '{table}': {e}")
+        raise ToolException(f"Error getting row count for '{table_name}': {e}")
 
 @tool()
 def analyze_query_impact(query: str) -> str:

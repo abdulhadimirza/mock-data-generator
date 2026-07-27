@@ -1,12 +1,26 @@
+import sqlglot
+from sqlglot import exp
 from langchain_core.tools import tool, ToolException
 from langgraph.types import interrupt
 from database import get_readonly_connection, get_db_connection
-from .helpers import create_timeout_handler, parse_sql_statements
+from .helpers import create_timeout_handler, parse_sql_statements, verify_table_exists
 
 @tool()
-def execute_read_query(query: str) -> str:
-    """Safely execute one or more raw SQL queries provided by the LLM (separated by semicolons) and return the results."""
-    statements = parse_sql_statements(query)
+def execute_select_query(sql_query: str) -> str:
+    """Runs analytical SELECT queries to answer user questions or check table states. Strictly enforces read-only operations."""
+    try:
+        parsed_expressions = sqlglot.parse(sql_query, read="sqlite")
+    except Exception as e:
+        raise ToolException(f"SQL Parsing Error: Could not parse query with sqlglot: {e}")
+
+    for expr in parsed_expressions:
+        if expr is None:
+            continue
+        # Hard-block any non-SELECT or mutation operations at AST level
+        if any(isinstance(node, (exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Create, exp.Alter, exp.Replace)) for node in expr.walk()):
+            raise ToolException(f"Execution blocked: Only SELECT queries are permitted in execute_select_query. Found forbidden statement in AST.")
+
+    statements = parse_sql_statements(sql_query)
     if not statements:
         return "No valid SQL statements found in input."
 
@@ -35,6 +49,29 @@ def execute_read_query(query: str) -> str:
             return "\n\n".join(results_output)
     except Exception as e:
         raise ToolException(f"Database Error: {e}")
+
+@tool()
+def get_table_sample(table_name: str, limit: int = 3) -> str:
+    """Returns a few real database rows so the agent can inspect existing date string formats, enums, or ID conventions."""
+    try:
+        limit = max(1, min(limit, 20))
+        with get_readonly_connection() as conn:
+            if not verify_table_exists(conn, table_name):
+                return f"Table '{table_name}' does not exist."
+                
+            cursor = conn.cursor()
+            cursor.execute(f'SELECT * FROM {table_name} LIMIT {limit};')
+            rows = cursor.fetchall()
+            
+            if not rows:
+                return f"Table '{table_name}' is empty (0 rows)."
+                
+            lines = [f"Sample Data for table '{table_name}' ({len(rows)} row(s)):"]
+            for r in rows:
+                lines.append(str(dict(r)))
+            return "\n".join(lines)
+    except Exception as e:
+        raise ToolException(f"Error fetching sample data for table '{table_name}': {e}")
 
 @tool()
 def execute_write_query(query: str, explanation: str) -> str:
