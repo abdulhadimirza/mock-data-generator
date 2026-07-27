@@ -1,8 +1,7 @@
 import sqlglot
 from sqlglot import exp
 from langchain_core.tools import tool, ToolException
-from langgraph.types import interrupt
-from database import get_readonly_connection, get_db_connection
+from database import get_readonly_connection
 from .helpers import create_timeout_handler, parse_sql_statements, verify_table_exists
 
 @tool()
@@ -73,31 +72,3 @@ def get_table_sample(table_name: str, limit: int = 3) -> str:
     except Exception as e:
         raise ToolException(f"Error fetching sample data for table '{table_name}': {e}")
 
-@tool()
-def execute_write_query(query: str, explanation: str) -> str:
-    """Execute one or more raw SQL queries that modify the database (separated by semicolons). Requires a plain-English explanation of the blast radius / impact."""
-    statements = parse_sql_statements(query)
-    if not statements:
-        return "No valid SQL statements found in input."
-
-    response = interrupt({
-        "tool_name": "execute_write_query",
-        "arguments": {"query": query, "explanation": explanation},
-        "message": f"Approve executing the following SQL write query/queries?\n\nExplanation:\n{explanation}\n\nSQL:\n{query}"
-    })
-    
-    if not response:
-        return "Query execution cancelled by user."
-        
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            total_rows_affected = 0
-            for stmt in statements:
-                cursor.execute(stmt)
-                total_rows_affected += cursor.rowcount if cursor.rowcount > 0 else 0
-            conn.commit()
-            
-            return f"All {len(statements)} statement(s) executed successfully. Total rows affected: {total_rows_affected}"
-    except Exception as e:
-        raise ToolException(f"Database Error: {e}")
