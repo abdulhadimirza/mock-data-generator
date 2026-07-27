@@ -18,12 +18,8 @@ def _reader_prompt_builder(args: dict) -> str:
     return args.get('query', '')
 
 def _generator_prompt_builder(args: dict) -> str:
-    target_table = args.get('target_table', '')
-    requirements = args.get('requirements')
-    prompt = f"Generate mock data for table '{target_table}'."
-    if requirements:
-        prompt += f" Requirements/Rules: {requirements}"
-    return prompt
+    return args.get('query', '')
+
 
 reader_subagent_node = create_subagent_node(
     subgraph=database_reader_graph,
