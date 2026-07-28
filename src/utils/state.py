@@ -11,6 +11,8 @@ class AgentState(BaseModel):
 
 class GeneratorState(MessagesState):
     relevant_tables: List[str]
+    schema_map: Optional[str] = None
+
 
 
 class TableSelectionResponse(BaseModel):
