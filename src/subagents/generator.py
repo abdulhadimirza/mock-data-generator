@@ -2,6 +2,8 @@ import random
 import datetime
 import uuid
 import sqlite3
+import concurrent.futures
+from contextlib import contextmanager
 from faker import Faker
 
 from typing import Optional
@@ -20,6 +22,71 @@ from utils.state import GeneratorState, TableSelectionResponse, CodeGeneratorRes
 filter_llm = get_llm().with_structured_output(TableSelectionResponse)
 planner_llm = get_llm()
 code_gen_llm = get_llm().with_structured_output(CodeGeneratorResponse)
+
+# Sandbox Helper for Thread Execution & Connection Isolation
+def run_in_sandbox(code: str, safe_builtins: dict):
+    with get_db_connection() as conn:
+        def authorizer(action_code, arg1, arg2, dbname, source):
+            forbidden = {
+                sqlite3.SQLITE_DELETE,
+                sqlite3.SQLITE_UPDATE,
+                sqlite3.SQLITE_DROP_TABLE,
+                sqlite3.SQLITE_ALTER_TABLE,
+                sqlite3.SQLITE_DROP_INDEX,
+                sqlite3.SQLITE_DROP_TRIGGER,
+                sqlite3.SQLITE_DROP_VIEW,
+                sqlite3.SQLITE_DROP_VTABLE
+            }
+            if action_code in forbidden:
+                return sqlite3.SQLITE_DENY
+            return sqlite3.SQLITE_OK
+
+        conn.set_authorizer(authorizer)
+
+        class SafeConn:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def cursor(self):
+                return conn.cursor()
+
+            def commit(self):
+                pass  # Ignore manual commits in LLM script to ensure overall transaction atomicity
+
+            def rollback(self):
+                conn.rollback()
+
+            def close(self):
+                pass  # Managed by parent context manager
+
+            def __getattr__(self, item):
+                if item.startswith("_") or item == "set_authorizer":
+                    raise AttributeError(f"Access to '{item}' is restricted.")
+                return getattr(conn, item)
+
+        @contextmanager
+        def safe_get_db_connection():
+            yield SafeConn()
+
+        safe_globals = {
+            "__builtins__": safe_builtins,
+            "sqlite3": sqlite3,
+            "random": random,
+            "datetime": datetime,
+            "uuid": uuid,
+            "Faker": Faker,
+            "get_db_connection": safe_get_db_connection
+        }
+
+        local_scope = {}
+
+        try:
+            exec(code, safe_globals, local_scope)
+            conn.commit()
+            return True, "Successfully executed mock data insertion script in sandbox environment."
+        except Exception as e:
+            conn.rollback()
+            return False, f"{type(e).__name__}: {str(e)}"
 
 # 1. Stateless Filter Node
 def filter_tables_node(state: GeneratorState):
@@ -103,33 +170,43 @@ def sandbox_execution_node(state: GeneratorState):
             "execution_error": "Empty generated code."
         }
 
+    def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+        allowed_modules = {"sqlite3", "random", "datetime", "uuid", "faker", "math", "time", "decimal"}
+        if name in allowed_modules:
+            return __import__(name, globals, locals, fromlist, level)
+        raise ImportError(f"Import of module '{name}' is forbidden in sandbox environment.")
+
     safe_builtins = {
         "range": range, "len": len, "str": str, "int": int, "float": float,
         "bool": bool, "list": list, "dict": dict, "set": set, "tuple": tuple,
         "print": print, "enumerate": enumerate, "zip": zip, "min": min, "max": max,
         "abs": abs, "sum": sum, "any": any, "all": all, "isinstance": isinstance,
+        "getattr": getattr, "hasattr": hasattr,
         "Exception": Exception, "ValueError": ValueError, "TypeError": TypeError,
-        "KeyError": KeyError, "AttributeError": AttributeError
+        "KeyError": KeyError, "AttributeError": AttributeError,
+        "__import__": safe_import
     }
 
-    safe_globals = {
-        "__builtins__": safe_builtins,
-        "sqlite3": sqlite3,
-        "random": random,
-        "datetime": datetime,
-        "uuid": uuid,
-        "Faker": Faker,
-        "get_db_connection": get_db_connection
-    }
-
-    local_scope = {}
-
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     try:
-        exec(code, safe_globals, local_scope)
-        result_msg = "Successfully executed mock data insertion script in sandbox environment."
+        future = executor.submit(run_in_sandbox, code, safe_builtins)
+        success, message = future.result(timeout=15)
+
+        if success:
+            return {
+                "execution_result": message,
+                "execution_error": None
+            }
+        else:
+            return {
+                "execution_result": f"Execution failed: {message}",
+                "execution_error": message
+            }
+    except concurrent.futures.TimeoutError:
+        error_msg = "TimeoutError: Execution timed out after 15 seconds limit."
         return {
-            "execution_result": result_msg,
-            "execution_error": None
+            "execution_result": f"Execution failed: {error_msg}",
+            "execution_error": error_msg
         }
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
@@ -137,6 +214,8 @@ def sandbox_execution_node(state: GeneratorState):
             "execution_result": f"Execution failed: {error_msg}",
             "execution_error": error_msg
         }
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
 
 # 6. Conditional Edge Router for Error Refinement
 def route_execution_result(state: GeneratorState):

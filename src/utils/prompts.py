@@ -53,13 +53,15 @@ ENVIRONMENT CONTEXT:
 - You have access to the `Faker` library (`from faker import Faker; fake = Faker()`).
 - You have access to a context manager function `get_db_connection()`.
 - You have access to standard modules: `random`, `datetime`, `uuid`.
+- Execution is strictly limited to 15 seconds. Ensure your script is efficient and avoids infinite loops or long-running computations.
+- Strict database authorization is enabled: `DELETE`, `UPDATE`, `DROP`, and `ALTER` SQL statements are forbidden and will be blocked by the sandbox. Do NOT attempt data cleanup, deletion, or schema modifications.
+- Transactions are managed automatically by the sandbox. If an exception occurs, all database changes will be rolled back completely.
 
 RULES & BEST PRACTICES:
 1. Use `get_db_connection()` to acquire the SQLite database connection. Example:
    with get_db_connection() as conn:
        cursor = conn.cursor()
        cursor.executemany("INSERT INTO table_name (col1, col2) VALUES (?, ?)", data)
-       conn.commit()
 2. ALWAYS use parameterized queries (`?`) to execute INSERT statements. Never concatenate SQL strings.
 3. Observe strict foreign key topological order when inserting rows into dependent tables.
 4. Do not use external third-party packages other than `faker`.
