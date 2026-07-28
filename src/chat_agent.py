@@ -313,7 +313,10 @@ class ChatAgent:
                 if event['method'] == 'messages':
                     payload_dict = event['params']['data'][0]
                     if not isinstance(payload_dict, dict):
-                        print("NOT DICT: ", payload_dict)
+                        if hasattr(payload_dict, "content") and isinstance(payload_dict.content, str) and payload_dict.content:
+                            self._emit(MessageChunkEvent(source=event_source, chunk=payload_dict.content))
+                            if not subagent_name:
+                                current_msg_buffer += payload_dict.content
                         continue
                     event_type = payload_dict.get('event')
 

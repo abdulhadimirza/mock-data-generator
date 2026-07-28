@@ -28,8 +28,6 @@ def run_in_sandbox(code: str, safe_builtins: dict):
     with get_db_connection() as conn:
         def authorizer(action_code, arg1, arg2, dbname, source):
             forbidden = {
-                sqlite3.SQLITE_DELETE,
-                sqlite3.SQLITE_UPDATE,
                 sqlite3.SQLITE_DROP_TABLE,
                 sqlite3.SQLITE_ALTER_TABLE,
                 sqlite3.SQLITE_DROP_INDEX,
@@ -79,10 +77,8 @@ def run_in_sandbox(code: str, safe_builtins: dict):
             "get_db_connection": safe_get_db_connection
         }
 
-        local_scope = {}
-
         try:
-            exec(code, safe_globals, local_scope)
+            exec(code, safe_globals)
             conn.commit()
             return True, "Successfully executed mock data insertion script in sandbox environment."
         except Exception as e:
@@ -210,7 +206,9 @@ def sandbox_execution_node(state: GeneratorState):
         "bool": bool, "list": list, "dict": dict, "set": set, "tuple": tuple,
         "print": print, "enumerate": enumerate, "zip": zip, "min": min, "max": max,
         "abs": abs, "sum": sum, "any": any, "all": all, "isinstance": isinstance,
-        "getattr": getattr, "hasattr": hasattr,
+        "getattr": getattr, "hasattr": hasattr, "round": round, "map": map,
+        "filter": filter, "sorted": sorted, "divmod": divmod, "pow": pow,
+        "ord": ord, "chr": chr, "hash": hash,
         "Exception": Exception, "ValueError": ValueError, "TypeError": TypeError,
         "KeyError": KeyError, "AttributeError": AttributeError,
         "__import__": safe_import
@@ -256,11 +254,19 @@ def summary_node(state: GeneratorState):
     state_messages = state.get("messages", [])
     relevant_tables = state.get("relevant_tables", [])
     execution_result = state.get("execution_result", "")
+    execution_error = state.get("execution_error", None)
+    
+    if execution_error:
+        status_text = f"FAILED with error:\n{execution_error}"
+    else:
+        status_text = f"SUCCESS:\n{execution_result}"
     
     summary_prompt = (
-        f"The mock data generation run for tables {', '.join(relevant_tables)} finished with status:\n"
-        f"{execution_result}\n\n"
-        "Provide a clear, user-friendly, and concise summary of the data population process and results for the user. Do NOT include any Python code."
+        f"The mock data generation run for tables {', '.join(relevant_tables)} finished with the following final status:\n"
+        f"[{status_text}]\n\n"
+        "If the process FAILED, clearly state that the data generation failed and summarize the final error. "
+        "If the process SUCCEEDED, summarize the data population process. "
+        "Base your summary STRICTLY on the final status provided above. Do NOT hallucinate success if the status is FAILED. Do NOT include any Python code."
     )
     messages = [SystemMessage(content=summary_prompt)] + list(state_messages)
     response = planner_llm.invoke(messages)
