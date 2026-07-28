@@ -11,8 +11,11 @@ class AgentState(BaseModel):
 
 class GeneratorState(MessagesState):
     relevant_tables: List[str]
-    schema_map: Optional[str] = None
-
+    schema_map: Optional[str]
+    generated_code: Optional[str]
+    execution_result: Optional[str]
+    execution_error: Optional[str]
+    retry_count: int
 
 
 class TableSelectionResponse(BaseModel):
@@ -21,4 +24,9 @@ class TableSelectionResponse(BaseModel):
         description="List of table names relevant to the user query"
     )
 
+
+class CodeGeneratorResponse(BaseModel):
+    python_code: str = Field(
+        description="The raw, executable Python script to generate and insert mock data into SQLite."
+    )
 
