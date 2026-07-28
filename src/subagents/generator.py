@@ -108,7 +108,7 @@ def filter_tables_node(state: GeneratorState):
         relevant_tables = result.get("relevant_tables", [])
     else:
         relevant_tables = []
-        
+    
     return {"relevant_tables": relevant_tables}
 
 # 2. Fetch Schema Node
@@ -122,6 +122,7 @@ def fetch_schema_node(state: GeneratorState):
 
 # 3. Mock Data Generator Planner Node
 def generator_planner_node(state: GeneratorState):
+    print("\n--- [GENERATOR PLANNER NODE] ---")
     state_messages = state.get("messages", [])
     relevant_tables = state.get("relevant_tables", [])
     schema_map = state.get("schema_map", "")
@@ -134,16 +135,17 @@ def generator_planner_node(state: GeneratorState):
         
     messages = [SystemMessage(content=system_prompt)] + list(state_messages)
     response = planner_llm.invoke(messages)
-    print(response)
+    print(f"[Planner Output]:\n{response.content if hasattr(response, 'content') else response}")
     return {"messages": [response]}
 
 # 4. Code Generator Node
 def code_generator_node(state: GeneratorState):
+    current_retries = state.get("retry_count", 0)
+    print(f"\n--- [CODE GENERATOR NODE] (Attempt {current_retries + 1}) ---")
     state_messages = state.get("messages", [])
     schema_map = state.get("schema_map", "")
     generated_code = state.get("generated_code", None)
     execution_error = state.get("execution_error", None)
-    current_retries = state.get("retry_count", 0)
     
     system_prompt = code_generator_system_prompt
     if schema_map:
@@ -152,6 +154,7 @@ def code_generator_node(state: GeneratorState):
     prompt_messages = [SystemMessage(content=system_prompt)] + list(state_messages)
     
     if execution_error:
+        print(f"[Retrying due to execution error]: {execution_error}")
         error_context = (
             f"The previous script execution failed.\n\n"
             f"FAILED SCRIPT:\n```python\n{generated_code}\n```\n\n"
@@ -161,7 +164,6 @@ def code_generator_node(state: GeneratorState):
         prompt_messages.append(SystemMessage(content=error_context))
         
     response = code_gen_llm.invoke(prompt_messages)
-    print(response)
     
     if hasattr(response, "python_code"):
         python_code = response.python_code
@@ -177,6 +179,8 @@ def code_generator_node(state: GeneratorState):
             python_code = content.strip()
     else:
         python_code = str(response)
+        
+    print(f"[Generated Script]:\n{python_code}")
     
     return {
         "generated_code": python_code,
@@ -186,8 +190,10 @@ def code_generator_node(state: GeneratorState):
 
 # 5. Sandbox Execution Node
 def sandbox_execution_node(state: GeneratorState):
+    print("\n--- [SANDBOX EXECUTION NODE] ---")
     code = state.get("generated_code", "")
     if not code:
+        print("[Sandbox Execution]: No code provided to execute.")
         return {
             "execution_result": "No code provided to execute.",
             "execution_error": "Empty generated code."
@@ -216,23 +222,27 @@ def sandbox_execution_node(state: GeneratorState):
         success, message = future.result(timeout=15)
 
         if success:
+            print(f"[Sandbox Execution Success]: {message}")
             return {
                 "execution_result": message,
                 "execution_error": None
             }
         else:
+            print(f"[Sandbox Execution Error]: {message}")
             return {
                 "execution_result": f"Execution failed: {message}",
                 "execution_error": message
             }
     except concurrent.futures.TimeoutError:
         error_msg = "TimeoutError: Execution timed out after 15 seconds limit."
+        print(f"[Sandbox Execution Timeout]: {error_msg}")
         return {
             "execution_result": f"Execution failed: {error_msg}",
             "execution_error": error_msg
         }
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
+        print(f"[Sandbox Execution Exception]: {error_msg}")
         return {
             "execution_result": f"Execution failed: {error_msg}",
             "execution_error": error_msg
@@ -240,18 +250,33 @@ def sandbox_execution_node(state: GeneratorState):
     finally:
         executor.shutdown(wait=False, cancel_futures=True)
 
-# 6. Conditional Edge Router for Error Refinement
+# 6. Summary Node
+def summary_node(state: GeneratorState):
+    print("\n--- [SUMMARY NODE] ---")
+    state_messages = state.get("messages", [])
+    relevant_tables = state.get("relevant_tables", [])
+    execution_result = state.get("execution_result", "")
+    
+    summary_prompt = (
+        f"The mock data generation run for tables {', '.join(relevant_tables)} finished with status:\n"
+        f"{execution_result}\n\n"
+        "Provide a clear, user-friendly, and concise summary of the data population process and results for the user. Do NOT include any Python code."
+    )
+    messages = [SystemMessage(content=summary_prompt)] + list(state_messages)
+    response = planner_llm.invoke(messages)
+    print(f"[Summary Output]:\n{response.content if hasattr(response, 'content') else response}")
+    return {"messages": [response]}
+
+# 7. Conditional Edge Router for Error Refinement
 def route_execution_result(state: GeneratorState):
     execution_error = state.get("execution_error", None)
     retry_count = state.get("retry_count", 0)
     
-    if not execution_error:
-        return END
-    
-    if retry_count < 3:
+    if execution_error and retry_count < 3:
+        print(f"\n---> [ROUTER]: Execution error detected. Retrying code generation ({retry_count}/3)...")
         return "code_generator"
-    else:
-        return END
+    print("\n---> [ROUTER]: Execution successful or max retries reached. Routing to summary node.")
+    return "summary"
 
 generator_workflow = StateGraph(GeneratorState)
 
@@ -260,6 +285,7 @@ generator_workflow.add_node('fetch_schema', fetch_schema_node)
 generator_workflow.add_node('planner', generator_planner_node)
 generator_workflow.add_node('code_generator', code_generator_node)
 generator_workflow.add_node('sandbox_execution', sandbox_execution_node)
+generator_workflow.add_node('summary', summary_node)
 
 generator_workflow.add_edge(START, 'filter_tables')
 generator_workflow.add_edge('filter_tables', 'fetch_schema')
@@ -272,9 +298,10 @@ generator_workflow.add_conditional_edges(
     route_execution_result,
     {
         'code_generator': 'code_generator',
-        END: END
+        'summary': 'summary'
     }
 )
+generator_workflow.add_edge('summary', END)
 
 sample_generator_graph = generator_workflow.compile(name="generator_subagent_graph")
 

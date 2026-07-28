@@ -312,7 +312,10 @@ class ChatAgent:
 
                 if event['method'] == 'messages':
                     payload_dict = event['params']['data'][0]
-                    event_type = payload_dict['event']
+                    if not isinstance(payload_dict, dict):
+                        print("NOT DICT: ", payload_dict)
+                        continue
+                    event_type = payload_dict.get('event')
 
                     if subagent_name:
                         if event_type == 'content-block-delta':
