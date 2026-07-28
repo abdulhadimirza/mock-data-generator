@@ -69,6 +69,7 @@ def run_in_sandbox(code: str, safe_builtins: dict):
             yield SafeConn()
 
         safe_globals = {
+            "__name__": "__main__",
             "__builtins__": safe_builtins,
             "sqlite3": sqlite3,
             "random": random,
@@ -95,12 +96,19 @@ def filter_tables_node(state: GeneratorState):
         f"Available tables in database:\n{tables}\n\n"
         "Based on the user query, return only the list of table names relevant for generating data."
     )
-    state_messages = state["messages"]
+    state_messages = state.get("messages", [])
     messages = [SystemMessage(content=filter_prompt)] + list(state_messages)
     
     result = filter_llm.invoke(messages)
+    print(result)
     
-    relevant_tables = result.relevant_tables
+    if hasattr(result, "relevant_tables"):
+        relevant_tables = result.relevant_tables
+    elif isinstance(result, dict):
+        relevant_tables = result.get("relevant_tables", [])
+    else:
+        relevant_tables = []
+        
     return {"relevant_tables": relevant_tables}
 
 # 2. Fetch Schema Node
@@ -114,8 +122,7 @@ def fetch_schema_node(state: GeneratorState):
 
 # 3. Mock Data Generator Planner Node
 def generator_planner_node(state: GeneratorState):
-    state_messages = state["messages"]
-    
+    state_messages = state.get("messages", [])
     relevant_tables = state.get("relevant_tables", [])
     schema_map = state.get("schema_map", "")
     
@@ -127,14 +134,15 @@ def generator_planner_node(state: GeneratorState):
         
     messages = [SystemMessage(content=system_prompt)] + list(state_messages)
     response = planner_llm.invoke(messages)
+    print(response)
     return {"messages": [response]}
 
 # 4. Code Generator Node
 def code_generator_node(state: GeneratorState):
-    state_messages = state["messages"]
+    state_messages = state.get("messages", [])
     schema_map = state.get("schema_map", "")
-    generated_code = state.get("generated_code")
-    execution_error = state.get("execution_error")
+    generated_code = state.get("generated_code", None)
+    execution_error = state.get("execution_error", None)
     current_retries = state.get("retry_count", 0)
     
     system_prompt = code_generator_system_prompt
@@ -152,8 +160,23 @@ def code_generator_node(state: GeneratorState):
         )
         prompt_messages.append(SystemMessage(content=error_context))
         
-    response: CodeGeneratorResponse = code_gen_llm.invoke(prompt_messages)
-    python_code = response.python_code
+    response = code_gen_llm.invoke(prompt_messages)
+    print(response)
+    
+    if hasattr(response, "python_code"):
+        python_code = response.python_code
+    elif isinstance(response, dict):
+        python_code = response.get("python_code", "")
+    elif isinstance(response, AIMessage) or hasattr(response, "content"):
+        content = str(response.content)
+        if "```python" in content:
+            python_code = content.split("```python")[1].split("```")[0].strip()
+        elif "```" in content:
+            python_code = content.split("```")[1].split("```")[0].strip()
+        else:
+            python_code = content.strip()
+    else:
+        python_code = str(response)
     
     return {
         "generated_code": python_code,
@@ -219,7 +242,7 @@ def sandbox_execution_node(state: GeneratorState):
 
 # 6. Conditional Edge Router for Error Refinement
 def route_execution_result(state: GeneratorState):
-    execution_error = state.get("execution_error")
+    execution_error = state.get("execution_error", None)
     retry_count = state.get("retry_count", 0)
     
     if not execution_error:

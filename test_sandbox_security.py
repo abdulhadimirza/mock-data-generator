@@ -2,6 +2,12 @@ import os
 import sys
 import time
 
+# Ensure UTF-8 stdout on Windows terminals
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # Ensure src directory is in sys.path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
@@ -22,7 +28,7 @@ def test_timeout():
     
     assert "TimeoutError" in str(result.get("execution_error")), "Test 1 Failed: Timeout error was not triggered."
     assert elapsed < 18, "Test 1 Failed: Execution exceeded timeout window significantly."
-    print("✅ Test 1 Passed: Infinite loop / long execution timed out successfully!")
+    print("[PASS] Test 1 Passed: Infinite loop / long execution timed out successfully!")
 
 def test_authorizer_schema_protection():
     print("\n--- Test 2: SQLite Authorizer (Schema & Data Protection) ---")
@@ -50,7 +56,7 @@ with get_db_connection() as conn:
     assert result_delete.get("execution_error") is not None, "Test 2 Failed: DELETE was permitted."
     assert "not authorized" in str(result_delete.get("execution_error")).lower(), "Test 2 Failed: Authorizer did not block DELETE."
 
-    print("✅ Test 2 Passed: Destructive commands (DROP, DELETE) were blocked by authorizer!")
+    print("[PASS] Test 2 Passed: Destructive commands (DROP, DELETE) were blocked by authorizer!")
 
 def test_transaction_rollback():
     print("\n--- Test 3: Transaction Atomic Rollback ---")
@@ -88,7 +94,7 @@ with get_db_connection() as conn:
         
     print(f"User count in DB after failure: {final_count}")
     assert final_count == 0, "Test 3 Failed: Partial data was persisted despite execution failure!"
-    print("✅ Test 3 Passed: Failed executions rolled back atomically!")
+    print("[PASS] Test 3 Passed: Failed executions rolled back atomically!")
 
 def test_restricted_imports():
     print("\n--- Test 4: Restricted Import Controls ---")
@@ -99,7 +105,7 @@ def test_restricted_imports():
     print(f"Forbidden Import Error: {result_os.get('execution_error')}")
     assert result_os.get("execution_error") is not None, "Test 4 Failed: Restricted module 'os' was imported."
     assert "forbidden" in str(result_os.get("execution_error")).lower(), "Test 4 Failed: ImportError was not triggered for forbidden module."
-    print("✅ Test 4 Passed: Forbidden modules (like 'os') were blocked by safe_import!")
+    print("[PASS] Test 4 Passed: Forbidden modules (like 'os') were blocked by safe_import!")
 
 def test_conn_attribute_protection():
     print("\n--- Test 5: Connection Attribute Access Protection ---")
@@ -116,7 +122,7 @@ with get_db_connection() as conn:
     print(f"Attribute Access Error: {result_conn.get('execution_error')}")
     assert result_conn.get("execution_error") is not None, "Test 5 Failed: Internal connection attribute or set_authorizer was accessible."
     assert "restricted" in str(result_conn.get("execution_error")).lower(), "Test 5 Failed: Attribute restriction error was not raised."
-    print("✅ Test 5 Passed: Access to internal _conn and set_authorizer was blocked by SafeConn!")
+    print("[PASS] Test 5 Passed: Access to internal _conn and set_authorizer was blocked by SafeConn!")
 
 if __name__ == "__main__":
     print("==========================================")
@@ -129,10 +135,10 @@ if __name__ == "__main__":
         test_transaction_rollback()
         test_restricted_imports()
         test_conn_attribute_protection()
-        print("\n🎉 ALL SANDBOX SECURITY TESTS PASSED SUCCESSFULLY! 🎉")
+        print("\n[SUCCESS] ALL SANDBOX SECURITY TESTS PASSED SUCCESSFULLY!")
     except AssertionError as e:
-        print(f"\n❌ SECURITY TEST FAILED: {e}")
+        print(f"\n[FAIL] SECURITY TEST FAILED: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ UNEXPECTED ERROR: {e}")
+        print(f"\n[ERROR] UNEXPECTED ERROR: {e}")
         sys.exit(1)
