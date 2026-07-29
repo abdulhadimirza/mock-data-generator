@@ -125,7 +125,11 @@ def sandbox_execution_node(state: GeneratorState):
         }
 
     def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
-        allowed_modules = {"sqlite3", "random", "datetime", "uuid", "faker", "math", "time", "decimal"}
+        allowed_modules = {
+            "sqlite3", "_sqlite3", "random", "_random",
+            "datetime", "_datetime", "_strptime", "uuid",
+            "faker", "math", "time", "decimal"
+        }
         if name in allowed_modules:
             return __import__(name, globals, locals, fromlist, level)
         raise ImportError(f"Import of module '{name}' is forbidden in sandbox environment.")

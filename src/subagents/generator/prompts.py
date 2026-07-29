@@ -28,7 +28,8 @@ RULES & BEST PRACTICES:
        cursor = conn.cursor()
        cursor.executemany("INSERT INTO table_name (col1, col2) VALUES (?, ?)", data)
 2. ALWAYS use parameterized queries (`?`) to execute INSERT statements. Never concatenate SQL strings.
-3. Observe strict foreign key topological order when inserting rows into dependent tables.
-4. Do not use external third-party packages other than `faker`.
-5. Write clear, robust, self-contained Python code.
-6. If a previous execution error is provided, analyze the exception message carefully and fix the bug in your code."""
+3. ALWAYS extract scalar primitive values (e.g., `[row[0] for row in cursor.fetchall()]`) when fetching existing IDs or values from database queries. `cursor.fetchall()` returns `sqlite3.Row` objects which CANNOT be bound directly as parameter values in subsequent queries.
+4. Observe strict foreign key topological order when inserting rows into dependent tables.
+5. Do not use external third-party packages other than `faker`.
+6. Write clear, robust, self-contained Python code.
+7. If a previous execution error is provided, analyze the exception message carefully and fix the bug in your code."""

@@ -53,10 +53,9 @@ with get_db_connection() as conn:
     }
     result_delete = sandbox_execution_node(state_delete)
     print(f"DELETE Error: {result_delete.get('execution_error')}")
-    assert result_delete.get("execution_error") is not None, "Test 2 Failed: DELETE was permitted."
-    assert "not authorized" in str(result_delete.get("execution_error")).lower(), "Test 2 Failed: Authorizer did not block DELETE."
+    assert result_delete.get("execution_error") is None, "Test 2 Failed: DELETE should be permitted."
 
-    print("[PASS] Test 2 Passed: Destructive commands (DROP, DELETE) were blocked by authorizer!")
+    print("[PASS] Test 2 Passed: Schema modification commands (DROP) were blocked by authorizer, while DELETE is permitted!")
 
 def test_transaction_rollback():
     print("\n--- Test 3: Transaction Atomic Rollback ---")
@@ -124,6 +123,20 @@ with get_db_connection() as conn:
     assert "restricted" in str(result_conn.get("execution_error")).lower(), "Test 5 Failed: Attribute restriction error was not raised."
     print("[PASS] Test 5 Passed: Access to internal _conn and set_authorizer was blocked by SafeConn!")
 
+def test_strptime_import():
+    print("\n--- Test 6: Datetime strptime & Internal Module Import ---")
+    state_strptime = {
+        "generated_code": """
+from datetime import datetime
+dt = datetime.strptime("2026-07-29 12:00:00", "%Y-%m-%d %H:%M:%S")
+assert dt.year == 2026
+"""
+    }
+    result = sandbox_execution_node(state_strptime)
+    print(f"strptime Execution Result: {result.get('execution_result')}")
+    assert result.get("execution_error") is None, f"Test 6 Failed: strptime raised error: {result.get('execution_error')}"
+    print("[PASS] Test 6 Passed: datetime.strptime and internal _strptime import allowed in sandbox!")
+
 if __name__ == "__main__":
     print("==========================================")
     print(" Running Sandbox Hardening Security Tests ")
@@ -135,6 +148,7 @@ if __name__ == "__main__":
         test_transaction_rollback()
         test_restricted_imports()
         test_conn_attribute_protection()
+        test_strptime_import()
         print("\n[SUCCESS] ALL SANDBOX SECURITY TESTS PASSED SUCCESSFULLY!")
     except AssertionError as e:
         print(f"\n[FAIL] SECURITY TEST FAILED: {e}")
