@@ -6,7 +6,32 @@ from contextlib import contextmanager
 from faker import Faker
 from database import get_db_connection
 
-def run_in_sandbox(code: str, safe_builtins: dict):
+def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+    allowed_modules = {
+        "sqlite3", "_sqlite3", "random", "_random",
+        "datetime", "_datetime", "_strptime", "uuid",
+        "faker", "math", "time", "decimal"
+    }
+    if name in allowed_modules:
+        return __import__(name, globals, locals, fromlist, level)
+    raise ImportError(f"Import of module '{name}' is forbidden in sandbox environment.")
+
+SAFE_BUILTINS = {
+    "range": range, "len": len, "str": str, "int": int, "float": float,
+    "bool": bool, "list": list, "dict": dict, "set": set, "tuple": tuple,
+    "print": print, "enumerate": enumerate, "zip": zip, "min": min, "max": max,
+    "abs": abs, "sum": sum, "any": any, "all": all, "isinstance": isinstance,
+    "getattr": getattr, "hasattr": hasattr, "round": round, "map": map,
+    "filter": filter, "sorted": sorted, "divmod": divmod, "pow": pow,
+    "ord": ord, "chr": chr, "hash": hash,
+    "Exception": Exception, "ValueError": ValueError, "TypeError": TypeError,
+    "KeyError": KeyError, "AttributeError": AttributeError,
+    "__import__": safe_import
+}
+
+def run_in_sandbox(code: str, safe_builtins: dict = None):
+    if safe_builtins is None:
+        safe_builtins = SAFE_BUILTINS
     with get_db_connection() as conn:
         def authorizer(action_code, arg1, arg2, dbname, source):
             forbidden = {

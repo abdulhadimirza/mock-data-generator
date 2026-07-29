@@ -124,32 +124,9 @@ def sandbox_execution_node(state: GeneratorState):
             "execution_error": "Empty generated code."
         }
 
-    def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
-        allowed_modules = {
-            "sqlite3", "_sqlite3", "random", "_random",
-            "datetime", "_datetime", "_strptime", "uuid",
-            "faker", "math", "time", "decimal"
-        }
-        if name in allowed_modules:
-            return __import__(name, globals, locals, fromlist, level)
-        raise ImportError(f"Import of module '{name}' is forbidden in sandbox environment.")
-
-    safe_builtins = {
-        "range": range, "len": len, "str": str, "int": int, "float": float,
-        "bool": bool, "list": list, "dict": dict, "set": set, "tuple": tuple,
-        "print": print, "enumerate": enumerate, "zip": zip, "min": min, "max": max,
-        "abs": abs, "sum": sum, "any": any, "all": all, "isinstance": isinstance,
-        "getattr": getattr, "hasattr": hasattr, "round": round, "map": map,
-        "filter": filter, "sorted": sorted, "divmod": divmod, "pow": pow,
-        "ord": ord, "chr": chr, "hash": hash,
-        "Exception": Exception, "ValueError": ValueError, "TypeError": TypeError,
-        "KeyError": KeyError, "AttributeError": AttributeError,
-        "__import__": safe_import
-    }
-
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
     try:
-        future = executor.submit(run_in_sandbox, code, safe_builtins)
+        future = executor.submit(run_in_sandbox, code)
         success, message = future.result(timeout=15)
 
         if success:
