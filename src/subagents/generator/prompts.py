@@ -10,26 +10,23 @@ PLANNING REQUIREMENTS:
 
 DO NOT execute any database operations or data generation tools. Return your complete plan as formatted text."""
 
-generator_system_prompt = generator_planner_system_prompt
+code_generator_system_prompt = """You are an expert Python data engineer. Write a standalone Python script to generate and insert mock database data based on the provided plan.
 
-code_generator_system_prompt = """You are an expert Python data engineer. Your task is to write a standalone Python script to generate and insert mock database data based on the provided plan.
+ENVIRONMENT & CONSTRAINTS:
+- Imports available: `faker` (`from faker import Faker; fake = Faker()`), `get_db_connection()`, `random`, `datetime`, `uuid`. No other 3rd-party packages.
+- Execution limit: 15 seconds maximum. Ensure high efficiency and avoid infinite loops.
+- Security: Destructive SQL (`DROP`, `ALTER`, schema modifications) is strictly forbidden and blocked. Do not attempt data cleanup.
+- Transactions: Auto-managed by sandbox (automatic rollback on exception).
 
-ENVIRONMENT CONTEXT:
-- You have access to the `Faker` library (`from faker import Faker; fake = Faker()`).
-- You have access to a context manager function `get_db_connection()`.
-- You have access to standard modules: `random`, `datetime`, `uuid`.
-- Execution is strictly limited to 15 seconds. Ensure your script is efficient and avoids infinite loops or long-running computations.
-- Strict database authorization is enabled: `DROP`, `ALTER`, and other destructive SQL statements are forbidden and will be blocked by the sandbox. Do NOT attempt data cleanup, deletion, or schema modifications.
-- Transactions are managed automatically by the sandbox. If an exception occurs, all database changes will be rolled back completely.
+RULES:
+1. DB Context: Use `with get_db_connection() as conn:`.
+2. Parameterized Queries: ALWAYS use `?` placeholders (e.g., `cursor.executemany("INSERT INTO ... VALUES (?, ?)", data)`). Never concatenate SQL strings.
+3. Fetch Extraction: Extract scalar primitives when fetching existing values (e.g., `[row[0] for row in cursor.fetchall()]`). `sqlite3.Row` objects CANNOT be bound directly as parameters.
+4. Dependency Order: Insert rows into tables adhering strictly to foreign key topological order.
+5. Error Handling: Write robust, self-contained code. If a previous execution error is provided, analyze the exception and fix the bug."""
 
-RULES & BEST PRACTICES:
-1. Use `get_db_connection()` to acquire the SQLite database connection. Example:
-   with get_db_connection() as conn:
-       cursor = conn.cursor()
-       cursor.executemany("INSERT INTO table_name (col1, col2) VALUES (?, ?)", data)
-2. ALWAYS use parameterized queries (`?`) to execute INSERT statements. Never concatenate SQL strings.
-3. ALWAYS extract scalar primitive values (e.g., `[row[0] for row in cursor.fetchall()]`) when fetching existing IDs or values from database queries. `cursor.fetchall()` returns `sqlite3.Row` objects which CANNOT be bound directly as parameter values in subsequent queries.
-4. Observe strict foreign key topological order when inserting rows into dependent tables.
-5. Do not use external third-party packages other than `faker`.
-6. Write clear, robust, self-contained Python code.
-7. If a previous execution error is provided, analyze the exception message carefully and fix the bug in your code."""
+generator_summary_system_prompt = """The mock data generation run for tables {relevant_tables} finished with the following final status:
+[{status_text}]
+
+If the process FAILED, clearly state that the data generation failed and summarize the final error. If the process SUCCEEDED, summarize the data population process. Base your summary STRICTLY on the final status provided above. Do NOT hallucinate success if the status is FAILED. Do NOT include any Python code."""
+

@@ -5,7 +5,11 @@ from langgraph.graph import StateGraph, START, END
 
 from shared.tools import list_tables, get_tables_schema_with_deps
 from shared.llm import get_llm
-from subagents.generator.prompts import generator_planner_system_prompt, code_generator_system_prompt
+from subagents.generator.prompts import (
+    generator_planner_system_prompt,
+    code_generator_system_prompt,
+    generator_summary_system_prompt,
+)
 from subagents.generator.state import GeneratorState, TableSelectionResponse, CodeGeneratorResponse
 from subagents.generator.sandbox import run_in_sandbox
 
@@ -171,12 +175,9 @@ def summary_node(state: GeneratorState):
     else:
         status_text = f"SUCCESS:\n{execution_result}"
     
-    summary_prompt = (
-        f"The mock data generation run for tables {', '.join(relevant_tables)} finished with the following final status:\n"
-        f"[{status_text}]\n\n"
-        "If the process FAILED, clearly state that the data generation failed and summarize the final error. "
-        "If the process SUCCEEDED, summarize the data population process. "
-        "Base your summary STRICTLY on the final status provided above. Do NOT hallucinate success if the status is FAILED. Do NOT include any Python code."
+    summary_prompt = generator_summary_system_prompt.format(
+        relevant_tables=", ".join(relevant_tables),
+        status_text=status_text,
     )
     messages = [SystemMessage(content=summary_prompt)] + list(state_messages)
     response = planner_llm.invoke(messages)

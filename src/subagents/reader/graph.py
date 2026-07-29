@@ -1,4 +1,3 @@
-from typing import Optional
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, MessagesState, START, END
