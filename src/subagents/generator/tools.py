@@ -4,7 +4,8 @@ from typing import Optional
 from faker import Faker
 from langchain_core.tools import tool, ToolException
 from database import get_readonly_connection, get_db_connection
-from .helpers import verify_table_exists
+from shared.tools.helpers import verify_table_exists
+from shared.tools import shared_tools, list_tables, get_full_schema, get_tables_schema_with_deps, get_table_sample, get_table_row_count, execute_select_query
 
 fake = Faker()
 
@@ -161,3 +162,23 @@ def batch_insert_mock_data(table_name: str, records_json: str) -> str:
 
     except Exception as e:
         raise ToolException(f"Failed to batch insert mock data into '{table_name}': {e}")
+
+generate_mock_records.handle_tool_error = True
+batch_insert_mock_data.handle_tool_error = True
+
+generator_tools = [
+    list_tables,
+    get_full_schema,
+    get_tables_schema_with_deps,
+    get_table_sample,
+    get_table_row_count,
+    execute_select_query,
+    generate_mock_records,
+    batch_insert_mock_data,
+]
+
+__all__ = [
+    "generate_mock_records",
+    "batch_insert_mock_data",
+    "generator_tools",
+]

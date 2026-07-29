@@ -16,4 +16,3 @@ def get_table_row_count(table_name: str) -> str:
             return f"Table '{table_name}' total row count: {count}"
     except Exception as e:
         raise ToolException(f"Error getting row count for '{table_name}': {e}")
-

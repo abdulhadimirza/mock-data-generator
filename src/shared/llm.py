@@ -1,4 +1,5 @@
 import os
+from typing import Optional, List, Any
 
 from langchain_core.messages import SystemMessage
 from langchain_deepseek import ChatDeepSeek
@@ -25,10 +26,6 @@ gemini = ChatGoogleGenerativeAI(
     max_retries=2,
 )
 
-
-
-from typing import Optional, List, Any
-
 def get_llm(tools: Optional[List[Any]] = None):
     """
     Returns a resilient LLM runnable with transparent fallback handling.
@@ -40,8 +37,3 @@ def get_llm(tools: Optional[List[Any]] = None):
         fallback = deepseek.bind_tools(tools)
         return primary.with_fallbacks([fallback])
     return gemini.with_fallbacks([deepseek])
-
-
-
-
-

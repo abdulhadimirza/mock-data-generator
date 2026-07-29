@@ -3,9 +3,9 @@ from langchain_core.tools import tool
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from utils.tools import editor_tools
-from utils.nodes import get_llm
-from utils.prompts import editor_system_prompt
+from subagents.editor.tools import editor_tools
+from shared.llm import get_llm
+from subagents.editor.prompts import editor_system_prompt
 
 # 1. Create Data Editor Subgraph
 def editor_node(state):

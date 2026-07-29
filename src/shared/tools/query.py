@@ -71,4 +71,3 @@ def get_table_sample(table_name: str, limit: int = 3) -> str:
             return "\n".join(lines)
     except Exception as e:
         raise ToolException(f"Error fetching sample data for table '{table_name}': {e}")
-

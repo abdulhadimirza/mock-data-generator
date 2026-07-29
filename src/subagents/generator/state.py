@@ -4,11 +4,6 @@ from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
 from langgraph.graph import MessagesState
 
-class AgentState(BaseModel):
-    messages: Annotated[List[AnyMessage], add_messages]
-    current_agent: Optional[str] = None
-
-
 class GeneratorState(MessagesState):
     relevant_tables: List[str]
     schema_map: Optional[str]
@@ -17,16 +12,13 @@ class GeneratorState(MessagesState):
     execution_error: Optional[str]
     retry_count: int
 
-
 class TableSelectionResponse(BaseModel):
     relevant_tables: List[str] = Field(
         default_factory=list,
         description="List of table names relevant to the user query"
     )
 
-
 class CodeGeneratorResponse(BaseModel):
     python_code: str = Field(
         description="The raw, executable Python script to generate and insert mock data into SQLite."
     )
-

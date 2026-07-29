@@ -3,7 +3,7 @@ from sqlglot import exp
 from langchain_core.tools import tool, ToolException
 from langgraph.types import interrupt
 from database import get_readonly_connection, get_db_connection
-from .helpers import parse_sql_statements
+from shared.tools.helpers import parse_sql_statements
 
 @tool()
 def analyze_query_impact(query: str) -> str:
@@ -120,7 +120,16 @@ def execute_write_query(query: str, explanation: str) -> str:
     except Exception as e:
         raise ToolException(f"Database Error: {e}")
 
+analyze_query_impact.handle_tool_error = True
+execute_write_query.handle_tool_error = True
+
 editor_tools = [
     analyze_query_impact,
     execute_write_query,
+]
+
+__all__ = [
+    "analyze_query_impact",
+    "execute_write_query",
+    "editor_tools",
 ]
