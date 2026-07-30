@@ -6,6 +6,15 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.config import get_stream_writer
 from langgraph.errors import GraphInterrupt
 
+def emit_lifecycle_event(event_type: str, tool_name: str, tool_call_id: str, **kwargs):
+    try:
+        writer = get_stream_writer()
+        payload = {'event': event_type, 'tool_name': tool_name, 'tool_call_id': tool_call_id}
+        payload.update(kwargs)
+        writer(payload)
+    except Exception:
+        pass
+
 def create_subagent_node(
     subgraph: CompiledStateGraph,
     tool_name: str,
@@ -24,11 +33,7 @@ def create_subagent_node(
                 if tc['name'] == tool_name:
                     prompt = prompt_builder(tc['args'])
                     
-                    try:
-                        writer = get_stream_writer()
-                        writer({'event': 'subagent_start', 'tool_name': tc['name'], 'input': tc['args'], 'tool_call_id': tc['id']})
-                    except Exception:
-                        pass
+                    emit_lifecycle_event('subagent_start', tc['name'], tc['id'], input=tc['args'])
 
                     try:
                         result = subgraph.invoke({'messages': [('user', prompt)]}, config)
@@ -37,21 +42,13 @@ def create_subagent_node(
                         final_text = res_messages[-1].content if res_messages else default_completion_msg
                         content = final_text
                         
-                        try:
-                            writer = get_stream_writer()
-                            writer({'event': 'subagent_end', 'tool_name': tc['name'], 'output': content, 'tool_call_id': tc['id']})
-                        except Exception:
-                            pass
+                        emit_lifecycle_event('subagent_end', tc['name'], tc['id'], output=content)
                             
                         tool_messages.append(ToolMessage(content=content, name=tc['name'], tool_call_id=tc['id']))
                     except GraphInterrupt as e:
                         raise e
                     except Exception as e:
-                        try:
-                            writer = get_stream_writer()
-                            writer({'event': 'subagent_error', 'tool_name': tc['name'], 'error': str(e), 'tool_call_id': tc['id']})
-                        except Exception:
-                            pass
+                        emit_lifecycle_event('subagent_error', tc['name'], tc['id'], error=str(e))
                         tool_messages.append(ToolMessage(content=f"Subagent execution failed: {str(e)}", name=tc['name'], tool_call_id=tc['id']))
 
         return {'messages': tool_messages}

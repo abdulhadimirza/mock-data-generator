@@ -27,6 +27,7 @@ from chat_agent import (
     ToolErrorEvent,
     ToolApprovalRequestEvent,
     SubagentLifecycleEvent,
+    SubagentProgressEvent,
     TurnCompleteEvent,
     ErrorEvent,
 )
@@ -166,6 +167,7 @@ class CLIRenderer:
             ToolResultEvent: self._handle_tool_result,
             ToolErrorEvent: self._handle_tool_error,
             SubagentLifecycleEvent: self._handle_subagent_lifecycle,
+            SubagentProgressEvent: self._handle_subagent_progress,
             ErrorEvent: self._handle_error,
             TurnCompleteEvent: self._handle_turn_complete,
         }
@@ -203,7 +205,13 @@ class CLIRenderer:
 
     def _handle_thinking(self, event: ThinkingEvent):
         self.start_live()
-        self.live.update(Spinner('dots', text="[dim]Thinking...[/dim]"))
+        prefix = f"[{event.source}] " if event.source != "Assistant" else ""
+        self.live.update(Spinner('dots', text=f"[dim]{prefix}Thinking...[/dim]"))
+
+    def _handle_subagent_progress(self, event: SubagentProgressEvent):
+        self.start_live()
+        prefix = f"[{event.source}] " if event.source != "Assistant" else ""
+        self.live.update(Spinner('dots', text=f"[dim]{prefix}{event.message}[/dim]"))
 
     def _handle_message_start(self, event: MessageStartEvent):
         if event.source == "Assistant":

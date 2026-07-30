@@ -2,6 +2,7 @@ import concurrent.futures
 from langchain_core.messages import SystemMessage, AIMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END
+from langgraph.config import get_stream_writer
 
 from shared.tools import list_tables, get_tables_schema_with_deps
 from shared.llm import get_llm
@@ -18,8 +19,20 @@ filter_llm = get_llm().with_structured_output(TableSelectionResponse)
 planner_llm = get_llm()
 code_gen_llm = get_llm().with_structured_output(CodeGeneratorResponse)
 
+def emit_progress(message: str):
+    try:
+        writer = get_stream_writer()
+        writer({
+            'event': 'subagent_progress',
+            'tool_name': 'call_sample_generator',
+            'message': message
+        })
+    except Exception:
+        pass
+
 # 1. Stateless Filter Node
 def filter_tables_node(state: GeneratorState):
+    emit_progress("Filtering relevant database tables...")
     tables = list_tables.invoke({})
     filter_prompt = (
         f"Available tables in database:\n{tables}\n\n"
@@ -29,7 +42,6 @@ def filter_tables_node(state: GeneratorState):
     messages = [SystemMessage(content=filter_prompt)] + list(state_messages)
     
     result = filter_llm.invoke(messages)
-    print(result)
     
     if hasattr(result, "relevant_tables"):
         relevant_tables = result.relevant_tables
@@ -46,12 +58,13 @@ def fetch_schema_node(state: GeneratorState):
     if not relevant_tables:
         return {"schema_map": ""}
     
+    emit_progress(f"Fetching schema for target tables: {', '.join(relevant_tables)}...")
     schema_map = get_tables_schema_with_deps.invoke({"table_names": relevant_tables})
     return {"schema_map": schema_map}
 
 # 3. Mock Data Generator Planner Node
 def generator_planner_node(state: GeneratorState):
-    print("\n--- [GENERATOR PLANNER NODE] ---")
+    emit_progress("Planning mock data generation strategy...")
     state_messages = state.get("messages", [])
     relevant_tables = state.get("relevant_tables", [])
     schema_map = state.get("schema_map", "")
@@ -64,13 +77,12 @@ def generator_planner_node(state: GeneratorState):
         
     messages = [SystemMessage(content=system_prompt)] + list(state_messages)
     response = planner_llm.invoke(messages)
-    print(f"[Planner Output]:\n{response.content if hasattr(response, 'content') else response}")
     return {"messages": [response]}
 
 # 4. Code Generator Node
 def code_generator_node(state: GeneratorState):
     current_retries = state.get("retry_count", 0)
-    print(f"\n--- [CODE GENERATOR NODE] (Attempt {current_retries + 1}) ---")
+    emit_progress(f"Generating Python data insertion script (Attempt {current_retries + 1})...")
     state_messages = state.get("messages", [])
     schema_map = state.get("schema_map", "")
     generated_code = state.get("generated_code", None)
@@ -83,7 +95,7 @@ def code_generator_node(state: GeneratorState):
     prompt_messages = [SystemMessage(content=system_prompt)] + list(state_messages)
     
     if execution_error:
-        print(f"[Retrying due to execution error]: {execution_error}")
+        emit_progress(f"Analyzing error and refactoring Python script...")
         error_context = (
             f"The previous script execution failed.\n\n"
             f"FAILED SCRIPT:\n```python\n{generated_code}\n```\n\n"
@@ -109,8 +121,6 @@ def code_generator_node(state: GeneratorState):
     else:
         python_code = str(response)
         
-    print(f"[Generated Script]:\n{python_code}")
-    
     return {
         "generated_code": python_code,
         "retry_count": current_retries + 1,
@@ -119,10 +129,10 @@ def code_generator_node(state: GeneratorState):
 
 # 5. Sandbox Execution Node
 def sandbox_execution_node(state: GeneratorState):
-    print("\n--- [SANDBOX EXECUTION NODE] ---")
+    emit_progress("Executing generated script in sandbox environment...")
     code = state.get("generated_code", "")
     if not code:
-        print("[Sandbox Execution]: No code provided to execute.")
+        emit_progress("Sandbox Execution Error: No code provided.")
         return {
             "execution_result": "No code provided to execute.",
             "execution_error": "Empty generated code."
@@ -134,27 +144,27 @@ def sandbox_execution_node(state: GeneratorState):
         success, message = future.result(timeout=15)
 
         if success:
-            print(f"[Sandbox Execution Success]: {message}")
+            emit_progress("Sandbox script execution succeeded!")
             return {
                 "execution_result": message,
                 "execution_error": None
             }
         else:
-            print(f"[Sandbox Execution Error]: {message}")
+            emit_progress(f"Sandbox execution error: {message[:60]}...")
             return {
                 "execution_result": f"Execution failed: {message}",
                 "execution_error": message
             }
     except concurrent.futures.TimeoutError:
         error_msg = "TimeoutError: Execution timed out after 15 seconds limit."
-        print(f"[Sandbox Execution Timeout]: {error_msg}")
+        emit_progress("Sandbox execution timed out.")
         return {
             "execution_result": f"Execution failed: {error_msg}",
             "execution_error": error_msg
         }
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
-        print(f"[Sandbox Execution Exception]: {error_msg}")
+        emit_progress(f"Sandbox exception: {error_msg[:60]}...")
         return {
             "execution_result": f"Execution failed: {error_msg}",
             "execution_error": error_msg
@@ -164,7 +174,7 @@ def sandbox_execution_node(state: GeneratorState):
 
 # 6. Summary Node
 def summary_node(state: GeneratorState):
-    print("\n--- [SUMMARY NODE] ---")
+    emit_progress("Generating final summary...")
     state_messages = state.get("messages", [])
     relevant_tables = state.get("relevant_tables", [])
     execution_result = state.get("execution_result", "")
@@ -181,7 +191,6 @@ def summary_node(state: GeneratorState):
     )
     messages = [SystemMessage(content=summary_prompt)] + list(state_messages)
     response = planner_llm.invoke(messages)
-    print(f"[Summary Output]:\n{response.content if hasattr(response, 'content') else response}")
     return {"messages": [response]}
 
 # 7. Conditional Edge Router for Error Refinement
@@ -190,9 +199,9 @@ def route_execution_result(state: GeneratorState):
     retry_count = state.get("retry_count", 0)
     
     if execution_error and retry_count < 3:
-        print(f"\n---> [ROUTER]: Execution error detected. Retrying code generation ({retry_count}/3)...")
+        emit_progress(f"Execution error detected. Retrying code generation ({retry_count}/3)...")
         return "code_generator"
-    print("\n---> [ROUTER]: Execution successful or max retries reached. Routing to summary node.")
+    emit_progress("Preparing final summary...")
     return "summary"
 
 generator_workflow = StateGraph(GeneratorState)

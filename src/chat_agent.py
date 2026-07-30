@@ -89,6 +89,11 @@ class SubagentLifecycleEvent(ChatEvent):
     event_type: str = field(default='subagent_lifecycle', init=False)
 
 @dataclass
+class SubagentProgressEvent(ChatEvent):
+    message: str = ""
+    event_type: str = field(default='subagent_progress', init=False)
+
+@dataclass
 class TurnCompleteEvent(ChatEvent):
     event_type: str = field(default='turn_complete', init=False)
 
@@ -248,7 +253,7 @@ class ChatAgent:
         Internal method to add an event to history and notify listeners.
         Note: Chunk events are usually just emitted, while full messages are saved to history.
         """
-        if not isinstance(event, (MessageChunkEvent, ThinkingEvent)):
+        if not isinstance(event, (MessageChunkEvent, ThinkingEvent, SubagentProgressEvent)):
             self.history.append(event)
             
         for listener in self._listeners:
@@ -336,8 +341,7 @@ class ChatAgent:
                         else:
                             self._emit(ToolResultEvent(source=event_source, tool_name=t_name, arguments=t_input, result=tool_output))
                             
-                        if not subagent_name:
-                            self._emit(ThinkingEvent())
+                        self._emit(ThinkingEvent(source=event_source))
                     elif data['event'] == 'tool-error':
                         tool_call_id = data.get('tool_call_id')
                         active_tool = active_tools.pop(tool_call_id, {}) if tool_call_id else {}
@@ -355,14 +359,17 @@ class ChatAgent:
                         if subagent_event == 'subagent_start':
                             tool_input = data.get('input', {})
                             self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='start', arguments=tool_input))
+                        elif subagent_event == 'subagent_progress':
+                            msg = data.get('message', '')
+                            self._emit(SubagentProgressEvent(source=s_name, message=msg))
                         elif subagent_event == 'subagent_end':
                             formatted_result = self._format_subagent_output(data.get('output', ''))
                             self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='result', result=formatted_result))
-                            self._emit(ThinkingEvent())
+                            self._emit(ThinkingEvent(source="Assistant"))
                         elif subagent_event == 'subagent_error':
                             err_msg = str(data.get('error') or "Subagent execution failed")
                             self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='error', error=err_msg))
-                            self._emit(ThinkingEvent())
+                            self._emit(ThinkingEvent(source="Assistant"))
 
             if getattr(stream, 'interrupted', False):
                 # Stream was interrupted for human approval; discard transient tool errors
