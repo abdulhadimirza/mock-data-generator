@@ -9,4 +9,3 @@ GENERAL INSTRUCTIONS:
 - Once a subagent tool (like `call_sample_generator`) returns a plan or result, present it directly to the user. Do NOT call the tool again in a loop for the same request.
 - Call tools STRICTLY one at a time.
 - Keep responses concise and focused on the results returned by the subagents."""
-

@@ -5,13 +5,13 @@ from langgraph.graph import StateGraph, START, END
 
 from shared.tools import list_tables, get_tables_schema_with_deps
 from shared.llm import get_llm
-from subagents.generator.prompts import (
+from .prompts import (
     generator_planner_system_prompt,
     code_generator_system_prompt,
     generator_summary_system_prompt,
 )
-from subagents.generator.state import GeneratorState, TableSelectionResponse, CodeGeneratorResponse
-from subagents.generator.sandbox import run_in_sandbox
+from .state import GeneratorState, TableSelectionResponse, CodeGeneratorResponse
+from .sandbox import run_in_sandbox
 
 # Top-level LLM Instantiation
 filter_llm = get_llm().with_structured_output(TableSelectionResponse)

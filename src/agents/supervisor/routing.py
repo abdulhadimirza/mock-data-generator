@@ -16,5 +16,4 @@ def route_supervisor(state: MessagesState):
     else:
         return END
 
-# Backward compatibility alias
-route_assistant = route_supervisor
+

@@ -19,7 +19,7 @@ from langgraph.errors import GraphRecursionError
 from langgraph.types import Command
 from langchain_core.runnables import RunnableConfig
 
-from core.supervisor import agent
+from agents.supervisor.graph import agent
 
 # --- Consolidated Event Hierarchy ---
 

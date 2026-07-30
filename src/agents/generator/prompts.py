@@ -29,4 +29,3 @@ generator_summary_system_prompt = """The mock data generation run for tables {re
 [{status_text}]
 
 If the process FAILED, clearly state that the data generation failed and summarize the final error. If the process SUCCEEDED, summarize the data population process. Base your summary STRICTLY on the final status provided above. Do NOT hallucinate success if the status is FAILED. Do NOT include any Python code."""
-

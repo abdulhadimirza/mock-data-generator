@@ -2,12 +2,12 @@ from langchain_core.messages import SystemMessage
 from langgraph.graph import StateGraph, MessagesState, START, END
 
 from shared.llm import get_llm
-from core.prompts import supervisor_system_prompt
+from .prompts import supervisor_system_prompt
+from .routing import route_supervisor
 
-from subagents.reader import database_reader_graph, call_database_reader
-from subagents.generator import sample_generator_graph, call_sample_generator
+from agents.reader import database_reader_graph, call_database_reader
+from agents.generator import sample_generator_graph, call_sample_generator
 from core.subagent_nodes import create_subagent_node
-from core.routing import route_supervisor
 from core.checkpointer import get_checkpointer
 from langgraph.prebuilt import ToolCallTransformer
 from core.stream import CustomModeTransformer

@@ -3,9 +3,9 @@ from langchain_core.tools import tool
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from subagents.reader.tools import reader_tools
+from .tools import reader_tools
 from shared.llm import get_llm
-from subagents.reader.prompts import reader_system_prompt
+from .prompts import reader_system_prompt
 
 reader_llm = get_llm(reader_tools)
 
