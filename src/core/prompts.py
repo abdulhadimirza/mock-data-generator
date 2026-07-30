@@ -10,4 +10,3 @@ GENERAL INSTRUCTIONS:
 - Call tools STRICTLY one at a time.
 - Keep responses concise and focused on the results returned by the subagents."""
 
-assistant_system_prompt = supervisor_system_prompt

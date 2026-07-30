@@ -5,7 +5,7 @@ from faker import Faker
 from langchain_core.tools import tool, ToolException
 from database import get_readonly_connection, get_db_connection
 from shared.tools.helpers import verify_table_exists
-from shared.tools import shared_tools, list_tables, get_full_schema, get_tables_schema_with_deps, get_table_sample, get_table_row_count, execute_select_query
+from shared.tools import list_tables, get_full_schema, get_tables_schema_with_deps, get_table_sample, get_table_row_count, execute_select_query
 
 fake = Faker()
 
