@@ -6,14 +6,14 @@ from .prompts import supervisor_system_prompt
 from .routing import route_supervisor
 
 from agents.reader import database_reader_graph, call_database_reader
-from agents.generator import sample_generator_graph, call_sample_generator
+from agents.generator import mock_generator_graph, call_mock_generator
 from core.subagent_nodes import create_subagent_node
 from core.checkpointer import get_checkpointer
 from langgraph.prebuilt import ToolCallTransformer
 from core.stream import CustomModeTransformer
 
 # Supervisor subagent tool definitions
-supervisor_tools = [call_database_reader, call_sample_generator]
+supervisor_tools = [call_database_reader, call_mock_generator]
 
 # Subagent prompt builders
 def _reader_prompt_builder(args: dict) -> str:
@@ -30,10 +30,10 @@ reader_subagent_node = create_subagent_node(
 )
 
 generator_subagent_node = create_subagent_node(
-    subgraph=sample_generator_graph,
-    tool_name='call_sample_generator',
+    subgraph=mock_generator_graph,
+    tool_name='call_mock_generator',
     prompt_builder=_generator_prompt_builder,
-    default_completion_msg="Sample Data Generator task completed."
+    default_completion_msg="Mock Data Generator task completed."
 )
 
 def supervisor_node(state):

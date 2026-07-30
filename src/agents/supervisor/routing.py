@@ -11,7 +11,7 @@ def route_supervisor(state: MessagesState):
     tc_names = [tc['name'] for tc in last_message.tool_calls]
     if 'call_database_reader' in tc_names:
         return 'reader_subagent'
-    elif 'call_sample_generator' in tc_names:
+    elif 'call_mock_generator' in tc_names:
         return 'generator_subagent'
     else:
         return END

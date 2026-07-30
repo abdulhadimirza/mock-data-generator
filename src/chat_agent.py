@@ -107,9 +107,9 @@ DEFAULT_SUBAGENT_NAMES = {
     'reader_subagent_graph': 'Database Reader',
     'reader_subagent': 'Database Reader',
     'call_database_reader': 'Database Reader',
-    'generator_subagent_graph': 'Sample Data Generator',
-    'generator_subagent': 'Sample Data Generator',
-    'call_sample_generator': 'Sample Data Generator',
+    'generator_subagent_graph': 'Mock Data Generator',
+    'generator_subagent': 'Mock Data Generator',
+    'call_mock_generator': 'Mock Data Generator',
     'editor_subagent_graph': 'Data Editor (Backup)',
     'editor_subagent': 'Data Editor (Backup)',
     'call_data_editor': 'Data Editor (Backup)',
@@ -359,9 +359,11 @@ class ChatAgent:
                         if subagent_event == 'subagent_start':
                             tool_input = data.get('input', {})
                             self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='start', arguments=tool_input))
+                            self._emit(ThinkingEvent(source=s_name))
                         elif subagent_event == 'subagent_progress':
                             msg = data.get('message', '')
                             self._emit(SubagentProgressEvent(source=s_name, message=msg))
+                            self._emit(ThinkingEvent(source=s_name))
                         elif subagent_event == 'subagent_end':
                             formatted_result = self._format_subagent_output(data.get('output', ''))
                             self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='result', result=formatted_result))

@@ -1,4 +1,4 @@
-generator_planner_system_prompt = """You are the Sample Data Generator Planner.
+generator_planner_system_prompt = """You are the Mock Data Generator Planner.
 
 Your role is to create an adversarial, robust, and comprehensive plan for generating mock database data based on the user request and schema.
 

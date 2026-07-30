@@ -148,6 +148,13 @@ def render_subagent_tool_error(console: Console, subagent_name: str, tool_name: 
         border_style='red'
     ))
 
+def render_subagent_progress(console: Console, subagent_name: str, message: str):
+    console.print(Panel(
+        f"[bold cyan][Subagent: {subagent_name}][/bold cyan] {message}",
+        title=f"[{subagent_name}] * Progress Update",
+        border_style='cyan'
+    ))
+
 class CLIRenderer:
     def __init__(self, console: Console):
         self.console = console
@@ -209,9 +216,11 @@ class CLIRenderer:
         self.live.update(Spinner('dots', text=f"[dim]{prefix}Thinking...[/dim]"))
 
     def _handle_subagent_progress(self, event: SubagentProgressEvent):
-        self.start_live()
-        prefix = f"[{event.source}] " if event.source != "Assistant" else ""
-        self.live.update(Spinner('dots', text=f"[dim]{prefix}{event.message}[/dim]"))
+        self.stop_live()
+        if self.full_response:
+            self.console.print(Markdown(self.full_response))
+            self.full_response = ''
+        render_subagent_progress(self.console, event.source, event.message)
 
     def _handle_message_start(self, event: MessageStartEvent):
         if event.source == "Assistant":
@@ -219,8 +228,6 @@ class CLIRenderer:
 
     def _handle_message_chunk(self, event: MessageChunkEvent):
         if event.source != "Assistant":
-            if self.live:
-                self.live.update(Spinner('dots', text=f"[dim][{event.source} Thinking...] {event.chunk.strip()[:40]}[/dim]"))
             return
 
         self.full_response += event.chunk

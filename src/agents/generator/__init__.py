@@ -1,3 +1,4 @@
-from .graph import sample_generator_graph, call_sample_generator, sandbox_execution_node
+from .graph import mock_generator_graph, call_mock_generator, sandbox_execution_node
 
-__all__ = ["sample_generator_graph", "call_sample_generator", "sandbox_execution_node"]
+__all__ = ["mock_generator_graph", "call_mock_generator", "sandbox_execution_node"]
+

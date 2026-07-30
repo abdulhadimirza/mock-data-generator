@@ -24,7 +24,7 @@ def emit_progress(message: str):
         writer = get_stream_writer()
         writer({
             'event': 'subagent_progress',
-            'tool_name': 'call_sample_generator',
+            'tool_name': 'call_mock_generator',
             'message': message
         })
     except Exception:
@@ -229,16 +229,16 @@ generator_workflow.add_conditional_edges(
 )
 generator_workflow.add_edge('summary', END)
 
-sample_generator_graph = generator_workflow.compile(name="generator_subagent_graph")
+mock_generator_graph = generator_workflow.compile(name="generator_subagent_graph")
 
 # Subagent Tool Definition
 @tool
-def call_sample_generator(query: str) -> str:
+def call_mock_generator(query: str) -> str:
     """
-    Delegate mock data generation planning to the Sample Data Generator subagent.
-    Returns a comprehensive mock data generation plan for database tables.
+    Delegate mock data generation to the Mock Data Generator subagent.
+    Generates and inserts mock data into database tables and returns a summary of the execution.
     
     Args:
-        query: Clear request or requirements regarding mock data planning.
+        query: Clear request or requirements regarding mock data generation.
     """
-    return "Sample Data Generator task initiated."
+    return "Mock Data Generator task initiated."
