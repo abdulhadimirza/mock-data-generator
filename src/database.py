@@ -97,7 +97,7 @@ def init_db() -> None:
                 ('Bob Jones', 'bob@example.com'),
                 ('Charlie Brown', 'charlie@example.com')
             ]
-            cursor.executemany('INSERT INTO users (name, email) VALUES (?, ?)', users)
+            #cursor.executemany('INSERT INTO users (name, email) VALUES (?, ?)', users)
             
             # Products
             products = [
@@ -106,7 +106,7 @@ def init_db() -> None:
                 ('Keyboard', 75.00, 30),
                 ('Monitor', 300.00, 15)
             ]
-            cursor.executemany('INSERT INTO products (name, price, stock) VALUES (?, ?, ?)', products)
+            #cursor.executemany('INSERT INTO products (name, price, stock) VALUES (?, ?, ?)', products)
             
             # Orders
             orders = [
@@ -114,7 +114,7 @@ def init_db() -> None:
                 (2, 'pending'),
                 (1, 'delivered')
             ]
-            cursor.executemany('INSERT INTO orders (user_id, status) VALUES (?, ?)', orders)
+            #cursor.executemany('INSERT INTO orders (user_id, status) VALUES (?, ?)', orders)
             
             # Order Items
             order_items = [
@@ -123,7 +123,7 @@ def init_db() -> None:
                 (2, 3, 1, 75.00),   # Bob ordered 1 Keyboard
                 (3, 4, 2, 300.00)   # Alice (2nd order) ordered 2 Monitors
             ]
-            cursor.executemany('INSERT INTO order_items (order_id, product_id, quantity, price_at_time) VALUES (?, ?, ?, ?)', order_items)
+            #cursor.executemany('INSERT INTO order_items (order_id, product_id, quantity, price_at_time) VALUES (?, ?, ?, ?)', order_items)
             
         conn.commit()
 

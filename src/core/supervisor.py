@@ -9,6 +9,8 @@ from subagents.generator import sample_generator_graph, call_sample_generator
 from core.subagent_nodes import create_subagent_node
 from core.routing import route_supervisor
 from core.checkpointer import get_checkpointer
+from langgraph.prebuilt import ToolCallTransformer
+from core.stream import CustomModeTransformer
 
 # Supervisor subagent tool definitions
 supervisor_tools = [call_database_reader, call_sample_generator]
@@ -65,6 +67,9 @@ def build_agent():
     main_workflow.add_edge('generator_subagent', 'supervisor_agent')
 
     memory = get_checkpointer()
-    return main_workflow.compile(checkpointer=memory)
+    return main_workflow.compile(
+        checkpointer=memory,
+        transformers=[ToolCallTransformer, CustomModeTransformer]
+    )
 
 agent = build_agent()

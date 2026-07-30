@@ -15,42 +15,11 @@ from uuid import uuid4
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Callable, Optional
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, BaseMessage
-from langgraph.prebuilt import ToolCallTransformer
-from langgraph.stream import StreamTransformer, StreamChannel
 from langgraph.errors import GraphRecursionError
 from langgraph.types import Command
 from langchain_core.runnables import RunnableConfig
 
 from core.supervisor import agent
-
-class SubagentTransformer(StreamTransformer):
-    required_stream_modes = ("custom",)
-    
-    def __init__(self, scope: tuple[str, ...] = ()):
-        super().__init__(scope)
-        self.subagent_start = StreamChannel("subagent_start")
-        self.subagent_end = StreamChannel("subagent_end")
-        self.subagent_error = StreamChannel("subagent_error")
-
-    def init(self) -> dict:
-        return {
-            "subagent_start": self.subagent_start,
-            "subagent_end": self.subagent_end,
-            "subagent_error": self.subagent_error
-        }
-
-    def process(self, event) -> bool:
-        if event["method"] == "custom":
-            data = event["params"]["data"]
-            if isinstance(data, dict):
-                event_name = data.get("event")
-                if event_name == "subagent_start":
-                    self.subagent_start.push(data)
-                elif event_name == "subagent_end":
-                    self.subagent_end.push(data)
-                elif event_name == "subagent_error":
-                    self.subagent_error.push(data)
-        return True
 
 # --- Consolidated Event Hierarchy ---
 
@@ -376,26 +345,24 @@ class ChatAgent:
                         t_input = active_tool.get('input', {})
                         err_msg = str(data.get('message') or data.get('error') or "Tool Failed")
                         pending_tool_errors.append(ToolErrorEvent(source=event_source, tool_name=t_name, arguments=t_input, error=err_msg))
-                elif event['method'] == 'custom:subagent_start':
+                elif event['method'] == 'custom':
                     data = event['params']['data']
-                    tool_name = data.get('tool_name', 'Unknown')
-                    tool_input = data.get('input', {})
-                    s_name = self.subagent_names.get(tool_name, tool_name)
-                    self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='start', arguments=tool_input))
-                elif event['method'] == 'custom:subagent_end':
-                    data = event['params']['data']
-                    tool_name = data.get('tool_name', 'Unknown')
-                    s_name = self.subagent_names.get(tool_name, tool_name)
-                    formatted_result = self._format_subagent_output(data.get('output', ''))
-                    self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='result', result=formatted_result))
-                    self._emit(ThinkingEvent())
-                elif event['method'] == 'custom:subagent_error':
-                    data = event['params']['data']
-                    tool_name = data.get('tool_name', 'Unknown')
-                    s_name = self.subagent_names.get(tool_name, tool_name)
-                    err_msg = str(data.get('error') or "Subagent execution failed")
-                    self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='error', error=err_msg))
-                    self._emit(ThinkingEvent())
+                    if isinstance(data, dict):
+                        subagent_event = data.get('event')
+                        tool_name = data.get('tool_name', 'Unknown')
+                        s_name = self.subagent_names.get(tool_name, tool_name)
+                        
+                        if subagent_event == 'subagent_start':
+                            tool_input = data.get('input', {})
+                            self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='start', arguments=tool_input))
+                        elif subagent_event == 'subagent_end':
+                            formatted_result = self._format_subagent_output(data.get('output', ''))
+                            self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='result', result=formatted_result))
+                            self._emit(ThinkingEvent())
+                        elif subagent_event == 'subagent_error':
+                            err_msg = str(data.get('error') or "Subagent execution failed")
+                            self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='error', error=err_msg))
+                            self._emit(ThinkingEvent())
 
             if getattr(stream, 'interrupted', False):
                 # Stream was interrupted for human approval; discard transient tool errors
@@ -445,8 +412,7 @@ class ChatAgent:
         stream = agent.stream_events(
             input_state,
             self.config,
-            version='v3',
-            transformers=[ToolCallTransformer, SubagentTransformer]
+            version='v3'
         )
         self._process_stream(stream)
         
@@ -457,8 +423,7 @@ class ChatAgent:
         stream = agent.stream_events(
             Command(resume=resume_data),
             self.config,
-            version='v3',
-            transformers=[ToolCallTransformer, SubagentTransformer]
+            version='v3'
         )
         self._process_stream(stream)
         
