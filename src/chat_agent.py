@@ -21,7 +21,7 @@ from langgraph.errors import GraphRecursionError
 from langgraph.types import Command
 from langchain_core.runnables import RunnableConfig
 
-from agent import agent
+from core.supervisor import agent
 
 class SubagentTransformer(StreamTransformer):
     required_stream_modes = ("custom",)
