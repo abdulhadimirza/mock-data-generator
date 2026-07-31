@@ -12,7 +12,7 @@ if hasattr(sys.stderr, "reconfigure"):
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from database import get_db_connection, init_db
-from subagents.generator import sandbox_execution_node
+from agents.generator import sandbox_execution_node
 
 def test_timeout():
     print("\n--- Test 1: Execution Timeout ---")
@@ -28,7 +28,23 @@ def test_timeout():
     
     assert "TimeoutError" in str(result.get("execution_error")), "Test 1 Failed: Timeout error was not triggered."
     assert elapsed < 18, "Test 1 Failed: Execution exceeded timeout window significantly."
-    print("[PASS] Test 1 Passed: Infinite loop / long execution timed out successfully!")
+    print("[PASS] Test 1 Passed: Long execution (sleep) timed out successfully!")
+
+def test_infinite_while_loop_termination():
+    print("\n--- Test 1b: CPU Infinite Loop Termination (while True) ---")
+    state = {
+        "generated_code": "i = 0\nwhile True:\n    i += 1"
+    }
+    start_time = time.time()
+    result = sandbox_execution_node(state)
+    elapsed = time.time() - start_time
+    
+    print(f"Elapsed Time: {elapsed:.2f} seconds")
+    print(f"Execution Error: {result.get('execution_error')}")
+    
+    assert "TimeoutError" in str(result.get("execution_error")), "Test 1b Failed: Timeout error was not triggered."
+    assert elapsed < 18, "Test 1b Failed: Execution exceeded timeout window significantly."
+    print("[PASS] Test 1b Passed: CPU infinite loop (while True) was forcefully terminated!")
 
 def test_authorizer_schema_protection():
     print("\n--- Test 2: SQLite Authorizer (Schema & Data Protection) ---")
@@ -144,6 +160,7 @@ if __name__ == "__main__":
     
     try:
         test_timeout()
+        test_infinite_while_loop_termination()
         test_authorizer_schema_protection()
         test_transaction_rollback()
         test_restricted_imports()

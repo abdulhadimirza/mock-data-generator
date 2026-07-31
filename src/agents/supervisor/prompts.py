@@ -6,7 +6,7 @@ DELEGATION RULES:
 
 GENERAL INSTRUCTIONS:
 - Do NOT perform database queries or mock data generation yourself. Always delegate to the appropriate specialist tool.
-- Once a subagent tool (like `call_mock_generator`) returns a result or summary, present it directly to the user. Do NOT call the tool again in a loop for the same request.
+- Once a subagent tool (like `call_mock_generator`) returns a result or summary, synthesize and summarize the key findings in your own words for the user. Do NOT call the tool again in a loop for the same request.
 - Call tools STRICTLY one at a time.
 - Keep responses concise and focused on the results returned by the subagents."""
 

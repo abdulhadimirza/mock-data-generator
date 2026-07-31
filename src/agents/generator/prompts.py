@@ -13,7 +13,8 @@ DO NOT execute any database operations or data generation tools. Return your com
 code_generator_system_prompt = """You are an expert Python data engineer. Write a standalone Python script to generate and insert mock database data based on the provided plan.
 
 ENVIRONMENT & CONSTRAINTS:
-- Imports available: `faker` (`from faker import Faker; fake = Faker()`), `get_db_connection()`, `random`, `datetime`, `uuid`. No other 3rd-party packages.
+- Imports available: `faker` (`from faker import Faker; fake = Faker()`), `random`, `datetime`, `uuid`. No other 3rd-party packages.
+- Globals available: `get_db_connection()` (DO NOT import this, it is already injected into the environment).
 - Execution limit: 15 seconds maximum. Ensure high efficiency and avoid infinite loops.
 - Security: Destructive SQL (`DROP`, `ALTER`, schema modifications) is strictly forbidden and blocked. Do not attempt data cleanup.
 - Transactions: Auto-managed by sandbox (automatic rollback on exception).

@@ -1,4 +1,7 @@
-import concurrent.futures
+import sys
+import io
+import multiprocessing
+import queue
 from langchain_core.messages import SystemMessage, AIMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END
@@ -105,27 +108,24 @@ def code_generator_node(state: GeneratorState):
         prompt_messages.append(SystemMessage(content=error_context))
         
     response = code_gen_llm.invoke(prompt_messages)
-    
-    if hasattr(response, "python_code"):
-        python_code = response.python_code
-    elif isinstance(response, dict):
-        python_code = response.get("python_code", "")
-    elif isinstance(response, AIMessage) or hasattr(response, "content"):
-        content = str(response.content)
-        if "```python" in content:
-            python_code = content.split("```python")[1].split("```")[0].strip()
-        elif "```" in content:
-            python_code = content.split("```")[1].split("```")[0].strip()
-        else:
-            python_code = content.strip()
-    else:
-        python_code = str(response)
+    python_code = response.python_code
         
     return {
         "generated_code": python_code,
         "retry_count": current_retries + 1,
         "messages": [AIMessage(content=f"Generated Data Insertion Script:\n```python\n{python_code}\n```")]
     }
+
+def _sandbox_worker(code, result_queue):
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        res = run_in_sandbox(code)
+        result_queue.put(res)
+    except Exception as e:
+        result_queue.put((False, f"{type(e).__name__}: {str(e)}"))
+    finally:
+        sys.stdout = old_stdout
 
 # 5. Sandbox Execution Node
 def sandbox_execution_node(state: GeneratorState):
@@ -138,10 +138,35 @@ def sandbox_execution_node(state: GeneratorState):
             "execution_error": "Empty generated code."
         }
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    result_queue = multiprocessing.Queue()
+    process = multiprocessing.Process(
+        target=_sandbox_worker,
+        args=(code, result_queue)
+    )
+
     try:
-        future = executor.submit(run_in_sandbox, code)
-        success, message = future.result(timeout=15)
+        process.start()
+        process.join(timeout=15)
+
+        if process.is_alive():
+            process.terminate()
+            process.join()
+            error_msg = "TimeoutError: Execution timed out after 15 seconds limit."
+            emit_progress("Sandbox execution timed out.")
+            return {
+                "execution_result": f"Execution failed: {error_msg}",
+                "execution_error": error_msg
+            }
+
+        try:
+            success, message = result_queue.get_nowait()
+        except queue.Empty:
+            error_msg = "Execution failed: No result returned from process."
+            emit_progress(f"Sandbox exception: {error_msg}")
+            return {
+                "execution_result": error_msg,
+                "execution_error": error_msg
+            }
 
         if success:
             emit_progress("Sandbox script execution succeeded!")
@@ -155,13 +180,6 @@ def sandbox_execution_node(state: GeneratorState):
                 "execution_result": f"Execution failed: {message}",
                 "execution_error": message
             }
-    except concurrent.futures.TimeoutError:
-        error_msg = "TimeoutError: Execution timed out after 15 seconds limit."
-        emit_progress("Sandbox execution timed out.")
-        return {
-            "execution_result": f"Execution failed: {error_msg}",
-            "execution_error": error_msg
-        }
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         emit_progress(f"Sandbox exception: {error_msg[:60]}...")
@@ -169,8 +187,6 @@ def sandbox_execution_node(state: GeneratorState):
             "execution_result": f"Execution failed: {error_msg}",
             "execution_error": error_msg
         }
-    finally:
-        executor.shutdown(wait=False, cancel_futures=True)
 
 # 6. Summary Node
 def summary_node(state: GeneratorState):
