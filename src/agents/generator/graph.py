@@ -229,9 +229,9 @@ def route_execution_result(state: GeneratorState):
     retry_count = state.get("retry_count", 0)
     
     if execution_error and retry_count < 3:
-        emit_progress(f"Execution error detected. Retrying code generation ({retry_count}/3)...")
+        emit_progress(f"Execution error detected. Routing back to code generation ({retry_count}/3)...")
         return "code_generator"
-    emit_progress("Preparing final summary...")
+    emit_progress("Routing to summary node...")
     return "summary"
 
 generator_workflow = StateGraph(GeneratorState)
