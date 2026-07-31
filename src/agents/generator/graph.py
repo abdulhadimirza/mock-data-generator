@@ -2,7 +2,7 @@ import sys
 import io
 import multiprocessing
 import queue
-from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END
 from langgraph.config import get_stream_writer
@@ -100,12 +100,13 @@ def code_generator_node(state: GeneratorState):
     if execution_error:
         emit_progress(f"Analyzing error and refactoring Python script...")
         error_context = (
+            f"[Sandbox Execution Feedback]\n"
             f"The previous script execution failed.\n\n"
             f"FAILED SCRIPT:\n```python\n{generated_code}\n```\n\n"
             f"EXECUTION ERROR:\n{execution_error}\n\n"
             f"Please analyze the error and the failed script, fix the bug, and return updated executable Python code."
         )
-        prompt_messages.append(SystemMessage(content=error_context))
+        prompt_messages.append(HumanMessage(content=error_context))
         
     response = code_gen_llm.invoke(prompt_messages)
     python_code = response.python_code
