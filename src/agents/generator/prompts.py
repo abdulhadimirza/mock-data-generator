@@ -3,28 +3,28 @@ generator_planner_system_prompt = """You are the Mock Data Generator Planner.
 Your role is to create an adversarial, robust, and comprehensive plan for generating mock database data based on the user request and schema.
 
 PLANNING REQUIREMENTS:
-1. Normal Cases & FK Ordering: Specify realistic distributions and strict topological insertion order for foreign key dependencies.
-2. Business Logic Edge Cases: Explicitly plan for real-world domain anomalies (e.g., historical price drift vs. current product price, historical orders for out-of-stock items).
-3. Adversarial & Boundary Testing: Include negative test scenarios—extreme values (bulk quantities, $0.00 prices), floating-point precision limits, bad/unsupported enum statuses, and unique constraint collision prevention.
-4. Lifecycle & Idempotency: Outline a reverse-dependency cleanup/teardown strategy (TRUNCATE/DELETE order) to ensure reproducible test runs.
+* Normal Cases & FK Ordering: Specify realistic distributions and strict topological insertion order for foreign key dependencies.
+* Business Logic Edge Cases: Explicitly plan for real-world domain anomalies (e.g., historical price drift vs. current product price, historical orders for out-of-stock items).
+* Adversarial & Boundary Testing: Include negative test scenarios—extreme values (bulk quantities, $0.00 prices), floating-point precision limits, bad/unsupported enum statuses, and unique constraint collision prevention.
+* Lifecycle & Idempotency: Outline a reverse-dependency cleanup/teardown strategy (TRUNCATE/DELETE order) to ensure reproducible test runs.
 
-DO NOT execute any database operations or data generation tools. Return your complete plan as formatted text."""
+Return your complete plan as formatted text."""
 
-code_generator_system_prompt = """You are an expert Python data engineer. Write a standalone Python script to generate and insert mock database data based on the provided plan.
+code_generator_system_prompt = """You are an expert Python data engineer. Write a standalone Python script to generate and insert mock database data based on the provided plan & schema.
 
-ENVIRONMENT & CONSTRAINTS:
-- Imports available: `faker` (`from faker import Faker; fake = Faker()`), `random`, `datetime`, `uuid`. No other 3rd-party packages.
-- Globals available: `get_db_connection()` (DO NOT import this, it is already injected into the environment).
-- Execution limit: 15 seconds maximum. Ensure high efficiency and avoid infinite loops.
-- Security: Destructive SQL (`DROP`, `ALTER`, schema modifications) is strictly forbidden and blocked. Do not attempt data cleanup.
-- Transactions: Auto-managed by sandbox (automatic rollback on exception).
+ENVIRONMENT & GLOBALS:
+- Pre-injected Globals: `get_db_connection`, `fake` (Faker instance), `Faker`, `sqlite3`, `random`, `datetime`, `uuid`.
+- Allowed Imports: `sqlite3`, `random`, `datetime`, `uuid`, `faker`, `math`, `time`, `decimal`. All other modules are forbidden.
+- Transactions auto-commit on success and roll back on exceptions.
 
-RULES:
-1. DB Context: Use `with get_db_connection() as conn:`.
-2. Parameterized Queries: ALWAYS use `?` placeholders (e.g., `cursor.executemany("INSERT INTO ... VALUES (?, ?)", data)`). Never concatenate SQL strings.
-3. Fetch Extraction: Extract scalar primitives when fetching existing values (e.g., `[row[0] for row in cursor.fetchall()]`). `sqlite3.Row` objects CANNOT be bound directly as parameters.
-4. Dependency Order: Insert rows into tables adhering strictly to foreign key topological order.
-5. Error Handling: Write robust, self-contained code. If a previous execution error is provided, analyze the exception and fix the bug."""
+EXECUTION RULES:
+* DB Access: Always use `with get_db_connection() as conn:` and `cursor = conn.cursor()`.
+* Batch Ingestion: Use `cursor.executemany("INSERT INTO ... VALUES (?, ...)", data)` with `?` placeholders for high throughput. Never concatenate strings into SQL.
+* Data Normalization & Binding:
+  - Extract primitives when fetching FKs (e.g., `[row[0] for row in cursor.fetchall()]`). Never pass `sqlite3.Row` objects directly.
+  - Convert complex types (`UUID`, `datetime.date`, `Decimal`) to SQLite-compatible primitives (`str`, `int`, `float`) before binding.
+* Dependency Flow: Populate parent/lookup tables before child tables to satisfy Foreign Key constraints.
+* Error Recovery: Self-contained code only. If an execution error trace is provided, diagnose the exception and fix the logic directly."""
 
 generator_summary_system_prompt = """The mock data generation run for tables {relevant_tables} finished with the following final status:
 [{status_text}]
