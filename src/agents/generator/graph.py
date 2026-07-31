@@ -144,12 +144,13 @@ def sandbox_execution_node(state: GeneratorState):
         except queue.Empty:
             if process.is_alive():
                 process.terminate()
-                process.join()
                 error_msg = "TimeoutError: Execution timed out after 15 seconds limit."
                 emit_progress("Sandbox execution timed out.")
             else:
                 error_msg = "Execution failed: No result returned from process."
                 emit_progress(f"Sandbox exception: {error_msg}")
+                
+            process.join()
                 
             error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{error_msg}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
             return {
@@ -175,6 +176,11 @@ def sandbox_execution_node(state: GeneratorState):
                 'messages': [HumanMessage(content=error_feedback)]
             }
     except Exception as e:
+        # Guarantee process cleanup if an outer exception triggers
+        if process.is_alive():
+            process.terminate()
+        process.join()
+
         error_msg = f"{type(e).__name__}: {str(e)}"
         emit_progress(f"Sandbox exception: {error_msg[:60]}...")
         error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{error_msg}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
