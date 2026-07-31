@@ -5,6 +5,7 @@ from langgraph.graph import MessagesState
 class GeneratorState(MessagesState):
     relevant_tables: List[str]
     schema_map: Optional[str]
+    generated_plan: Optional[str]
     generated_code: Optional[str]
     execution_result: Optional[str]
     execution_error: Optional[str]

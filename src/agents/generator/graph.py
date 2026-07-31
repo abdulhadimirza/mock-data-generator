@@ -79,8 +79,9 @@ def generator_planner_node(state: GeneratorState):
         system_prompt += f"\n\nSchema map of relevant tables:\n{schema_map}"
         
     messages = [SystemMessage(content=system_prompt)] + list(state_messages)
+
     response = planner_llm.invoke(messages)
-    return {"messages": [response]}
+    return {"generated_plan": response.content}
 
 # 4. Code Generator Node
 def code_generator_node(state: GeneratorState):
@@ -88,25 +89,15 @@ def code_generator_node(state: GeneratorState):
     emit_progress(f"Generating Python data insertion script (Attempt {current_retries + 1})...")
     state_messages = state.get("messages", [])
     schema_map = state.get("schema_map", "")
-    generated_code = state.get("generated_code", None)
-    execution_error = state.get("execution_error", None)
+    generated_plan = state.get("generated_plan", "")
     
     system_prompt = code_generator_system_prompt
     if schema_map:
         system_prompt += f"\n\nTarget Database Schema:\n{schema_map}"
+    if generated_plan:
+        system_prompt += f"\n\nExecution Plan:\n{generated_plan}"
         
     prompt_messages = [SystemMessage(content=system_prompt)] + list(state_messages)
-    
-    if execution_error:
-        emit_progress(f"Analyzing error and refactoring Python script...")
-        error_context = (
-            f"[Sandbox Execution Feedback]\n"
-            f"The previous script execution failed.\n\n"
-            f"FAILED SCRIPT:\n```python\n{generated_code}\n```\n\n"
-            f"EXECUTION ERROR:\n{execution_error}\n\n"
-            f"Please analyze the error and the failed script, fix the bug, and return updated executable Python code."
-        )
-        prompt_messages.append(HumanMessage(content=error_context))
         
     response = code_gen_llm.invoke(prompt_messages)
     python_code = response.python_code
@@ -154,9 +145,11 @@ def sandbox_execution_node(state: GeneratorState):
             process.join()
             error_msg = "TimeoutError: Execution timed out after 15 seconds limit."
             emit_progress("Sandbox execution timed out.")
+            error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{error_msg}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
             return {
                 "execution_result": f"Execution failed: {error_msg}",
-                "execution_error": error_msg
+                "execution_error": error_msg,
+                "messages": [HumanMessage(content=error_feedback)]
             }
 
         try:
@@ -164,9 +157,11 @@ def sandbox_execution_node(state: GeneratorState):
         except queue.Empty:
             error_msg = "Execution failed: No result returned from process."
             emit_progress(f"Sandbox exception: {error_msg}")
+            error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{error_msg}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
             return {
                 "execution_result": error_msg,
-                "execution_error": error_msg
+                "execution_error": error_msg,
+                "messages": [HumanMessage(content=error_feedback)]
             }
 
         if success:
@@ -177,17 +172,27 @@ def sandbox_execution_node(state: GeneratorState):
             }
         else:
             emit_progress(f"Sandbox execution error: {message[:60]}...")
+            error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{message}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
             return {
                 "execution_result": f"Execution failed: {message}",
-                "execution_error": message
+                "execution_error": message,
+                "messages": [HumanMessage(content=error_feedback)]
             }
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         emit_progress(f"Sandbox exception: {error_msg[:60]}...")
+        error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{error_msg}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
         return {
             "execution_result": f"Execution failed: {error_msg}",
-            "execution_error": error_msg
+            "execution_error": error_msg,
+            "messages": [HumanMessage(content=error_feedback)]
         }
+
+def _extract_initial_user_request(state_messages):
+    for m in state_messages:
+        if isinstance(m, HumanMessage):
+            return m
+    return None
 
 # 6. Summary Node
 def summary_node(state: GeneratorState):
@@ -196,17 +201,25 @@ def summary_node(state: GeneratorState):
     relevant_tables = state.get("relevant_tables", [])
     execution_result = state.get("execution_result", "")
     execution_error = state.get("execution_error", None)
+    generated_plan = state.get("generated_plan", "")
     
     if execution_error:
         status_text = f"FAILED with error:\n{execution_error}"
     else:
         status_text = f"SUCCESS:\n{execution_result}"
+        
+    if generated_plan:
+        status_text += f"\n\nPlanned Strategy Executed:\n{generated_plan}"
     
     summary_prompt = generator_summary_system_prompt.format(
         relevant_tables=", ".join(relevant_tables),
         status_text=status_text,
     )
-    messages = [SystemMessage(content=summary_prompt)] + list(state_messages)
+    user_req = _extract_initial_user_request(state_messages)
+    messages = [SystemMessage(content=summary_prompt)]
+    if user_req:
+        messages.append(user_req)
+
     response = planner_llm.invoke(messages)
     return {"messages": [response]}
 
