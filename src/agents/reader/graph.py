@@ -11,10 +11,10 @@ reader_llm = get_llm(reader_tools)
 
 # 1. Create Database Reader Subgraph
 def reader_node(state):
-    state_messages = state.get("messages", []) if isinstance(state, dict) else getattr(state, "messages", [])
+    state_messages = state.get('messages', []) if isinstance(state, dict) else getattr(state, 'messages', [])
     messages = [SystemMessage(content=reader_system_prompt)] + list(state_messages)
     response = reader_llm.invoke(messages)
-    return {"messages": [response]}
+    return {'messages': [response]}
 
 reader_workflow = StateGraph(MessagesState)
 

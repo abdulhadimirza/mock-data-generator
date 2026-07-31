@@ -189,7 +189,7 @@ class CLIRenderer:
                 console=self.console, 
                 refresh_per_second=10, 
                 transient=True, 
-                vertical_overflow="visible"
+                vertical_overflow='visible'
             )
             self.live.start()
 
@@ -293,12 +293,12 @@ class CLIRenderer:
             self.console.print(Markdown(self.full_response))
             self.full_response = ''
             
-        if event.lifecycle_type == "start":
+        if event.lifecycle_type == 'start':
             render_subagent_start(self.console, event.source, event.arguments or {})
-        elif event.lifecycle_type == "result":
-            render_subagent_result(self.console, event.source, event.result or "")
-        elif event.lifecycle_type == "error":
-            render_subagent_error(self.console, event.source, event.error or "")
+        elif event.lifecycle_type == 'result':
+            render_subagent_result(self.console, event.source, event.result or '')
+        elif event.lifecycle_type == 'error':
+            render_subagent_error(self.console, event.source, event.error or '')
 
     def _handle_error(self, event: ErrorEvent):
         self.stop_live()

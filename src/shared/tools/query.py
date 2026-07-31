@@ -8,7 +8,7 @@ from .helpers import create_timeout_handler, parse_sql_statements, verify_table_
 def execute_select_query(sql_query: str) -> str:
     """Runs analytical SELECT queries to answer user questions or check table states. Strictly enforces read-only operations."""
     try:
-        parsed_expressions = sqlglot.parse(sql_query, read="sqlite")
+        parsed_expressions = sqlglot.parse(sql_query, read='sqlite')
     except Exception as e:
         raise ToolException(f"SQL Parsing Error: Could not parse query with sqlglot: {e}")
 

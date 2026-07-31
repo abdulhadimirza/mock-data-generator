@@ -159,8 +159,8 @@ class ChatAgent:
                     text_content = msg.content
                 elif isinstance(msg.content, list):
                     for block in msg.content:
-                        if isinstance(block, dict) and block.get("type") == "text":
-                            text_content += block.get("text", "")
+                        if isinstance(block, dict) and block.get('type') == 'text':
+                            text_content += block.get('text', '')
                         elif isinstance(block, str):
                             text_content += block
                             
@@ -204,9 +204,9 @@ class ChatAgent:
                 if hasattr(task, 'interrupts') and task.interrupts:
                     payload = task.interrupts[0].value
                     if isinstance(payload, dict):
-                        t_name = payload.get("tool_name", "UnknownTool")
-                        t_args = payload.get("arguments", {})
-                        t_msg = payload.get("message", "Approval required.")
+                        t_name = payload.get('tool_name', 'UnknownTool')
+                        t_args = payload.get('arguments', {})
+                        t_msg = payload.get('message', 'Approval required.')
                     else:
                         t_name = "UnknownTool"
                         t_args = {}
@@ -238,8 +238,8 @@ class ChatAgent:
         elif isinstance(raw_output, list):
             text_parts = []
             for item in raw_output:
-                if isinstance(item, dict) and item.get("type") == "text":
-                    text_parts.append(item.get("text", ""))
+                if isinstance(item, dict) and item.get('type') == 'text':
+                    text_parts.append(item.get('text', ''))
                 elif isinstance(item, str):
                     text_parts.append(item)
                 else:
@@ -266,7 +266,7 @@ class ChatAgent:
         """
         Inject an error message into the agent's state so the LLM is aware of the failure on the next turn.
         """
-        agent.update_state(self.config, {"messages": [("system", f"The previous agent turn failed with error: {error_msg}")]})
+        agent.update_state(self.config, {'messages': [('system', f"The previous agent turn failed with error: {error_msg}")]})
 
     def _process_stream(self, stream) -> None:
         """
@@ -287,7 +287,7 @@ class ChatAgent:
                 if event['method'] == 'messages':
                     payload_dict = event['params']['data'][0]
                     if not isinstance(payload_dict, dict):
-                        if hasattr(payload_dict, "content") and isinstance(payload_dict.content, str) and payload_dict.content:
+                        if hasattr(payload_dict, 'content') and isinstance(payload_dict.content, str) and payload_dict.content:
                             self._emit(MessageChunkEvent(source=event_source, chunk=payload_dict.content))
                             if not subagent_name:
                                 current_msg_buffer += payload_dict.content
@@ -380,9 +380,9 @@ class ChatAgent:
                 if interrupts:
                     payload = interrupts[0].value
                     if isinstance(payload, dict):
-                        t_name = payload.get("tool_name", "UnknownTool")
-                        t_args = payload.get("arguments", {})
-                        t_msg = payload.get("message", "Approval required.")
+                        t_name = payload.get('tool_name', 'UnknownTool')
+                        t_args = payload.get('arguments', {})
+                        t_msg = payload.get('message', 'Approval required.')
                     else:
                         t_name = "UnknownTool"
                         t_args = {}

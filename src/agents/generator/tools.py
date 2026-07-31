@@ -110,7 +110,7 @@ def generate_mock_records(table_name: str, num_records: int = 5, custom_rules: O
 
                 records.append(record)
 
-            return json.dumps({"table": table_name, "count": len(records), "records": records}, indent=2)
+            return json.dumps({'table': table_name, 'count': len(records), 'records': records}, indent=2)
 
     except Exception as e:
         raise ToolException(f"Error generating mock records for '{table_name}': {e}")
@@ -128,8 +128,8 @@ def batch_insert_mock_data(table_name: str, records_json: str) -> str:
         # Parse records
         if isinstance(records_json, str):
             data = json.loads(records_json)
-            if isinstance(data, dict) and "records" in data:
-                records = data["records"]
+            if isinstance(data, dict) and 'records' in data:
+                records = data['records']
             elif isinstance(data, list):
                 records = data
             else:
@@ -148,8 +148,8 @@ def batch_insert_mock_data(table_name: str, records_json: str) -> str:
                 
             cursor = conn.cursor()
             cols = list(records[0].keys())
-            cols_str = ", ".join(cols)
-            placeholders = ", ".join(["?"] * len(cols))
+            cols_str = ', '.join(cols)
+            placeholders = ', '.join(['?'] * len(cols))
             sql = f"INSERT INTO {table_name} ({cols_str}) VALUES ({placeholders});"
 
             rows_to_insert = [tuple(rec[col] for col in cols) for rec in records]
@@ -178,7 +178,7 @@ generator_tools = [
 ]
 
 __all__ = [
-    "generate_mock_records",
-    "batch_insert_mock_data",
-    "generator_tools",
+    'generate_mock_records',
+    'batch_insert_mock_data',
+    'generator_tools',
 ]

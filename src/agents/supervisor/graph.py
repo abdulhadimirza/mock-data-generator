@@ -26,22 +26,22 @@ reader_subagent_node = create_subagent_node(
     subgraph=database_reader_graph,
     tool_name='call_database_reader',
     prompt_builder=_reader_prompt_builder,
-    default_completion_msg="Database Reader task completed."
+    default_completion_msg='Database Reader task completed.'
 )
 
 generator_subagent_node = create_subagent_node(
     subgraph=mock_generator_graph,
     tool_name='call_mock_generator',
     prompt_builder=_generator_prompt_builder,
-    default_completion_msg="Mock Data Generator task completed."
+    default_completion_msg='Mock Data Generator task completed.'
 )
 
 def supervisor_node(state):
     llm = get_llm(supervisor_tools)
-    state_messages = state.get("messages", []) if isinstance(state, dict) else getattr(state, "messages", [])
+    state_messages = state.get('messages', []) if isinstance(state, dict) else getattr(state, 'messages', [])
     messages = [SystemMessage(content=supervisor_system_prompt)] + list(state_messages)
     response = llm.invoke(messages)
-    return {"messages": [response]}
+    return {'messages': [response]}
 
 def build_agent():
     main_workflow = StateGraph(MessagesState)

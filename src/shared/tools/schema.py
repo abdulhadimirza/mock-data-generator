@@ -7,21 +7,21 @@ from .helpers import verify_table_exists
 def _get_table_schema_dict(cursor, table_name: str, create_sql: Optional[str] = None) -> Dict[str, Any]:
     """Helper function to extract complete schema dictionary for a single table."""
     if create_sql is None:
-        cursor.execute('SELECT sql FROM sqlite_master WHERE type="table" AND name=?;', (table_name,))
+        cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?;", (table_name,))
         row = cursor.fetchone()
-        create_sql = row['sql'] if row else ""
+        create_sql = row['sql'] if row else ''
 
     # Column info
     cursor.execute(f'PRAGMA table_info({table_name});')
     cols = cursor.fetchall()
     columns_info = [
         {
-            "cid": col['cid'],
-            "name": col['name'],
-            "type": col['type'],
-            "notnull": bool(col['notnull']),
-            "default_value": col['dflt_value'],
-            "pk": col['pk']
+            'cid': col['cid'],
+            'name': col['name'],
+            'type': col['type'],
+            'notnull': bool(col['notnull']),
+            'default_value': col['dflt_value'],
+            'pk': col['pk']
         }
         for col in cols
     ]
@@ -31,14 +31,14 @@ def _get_table_schema_dict(cursor, table_name: str, create_sql: Optional[str] = 
     fks = cursor.fetchall()
     fk_info = [
         {
-            "id": fk['id'],
-            "seq": fk['seq'],
-            "table": fk['table'],
-            "from": fk['from'],
-            "to": fk['to'],
-            "on_update": fk['on_update'],
-            "on_delete": fk['on_delete'],
-            "match": fk['match']
+            'id': fk['id'],
+            'seq': fk['seq'],
+            'table': fk['table'],
+            'from': fk['from'],
+            'to': fk['to'],
+            'on_update': fk['on_update'],
+            'on_delete': fk['on_delete'],
+            'match': fk['match']
         }
         for fk in fks
     ]
@@ -52,16 +52,16 @@ def _get_table_schema_dict(cursor, table_name: str, create_sql: Optional[str] = 
             cursor.execute(f'PRAGMA index_info({idx["name"]});')
             idx_cols = [c['name'] for c in cursor.fetchall()]
             unique_constraints.append({
-                "name": idx['name'],
-                "columns": idx_cols,
-                "origin": idx['origin'] if 'origin' in idx.keys() else 'c'
+                'name': idx['name'],
+                'columns': idx_cols,
+                'origin': idx['origin'] if 'origin' in idx.keys() else 'c'
             })
 
     return {
-        "create_sql": create_sql,
-        "columns": columns_info,
-        "foreign_keys": fk_info,
-        "unique_constraints": unique_constraints
+        'create_sql': create_sql,
+        'columns': columns_info,
+        'foreign_keys': fk_info,
+        'unique_constraints': unique_constraints
     }
 
 @tool()
@@ -70,7 +70,7 @@ def list_tables() -> str:
     try:
         with get_readonly_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT name FROM sqlite_master WHERE type="table";')
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
             tables = []
             for row in cursor.fetchall():
                 name = row['name']
@@ -90,7 +90,7 @@ def get_full_schema() -> str:
     try:
         with get_readonly_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT name, sql FROM sqlite_master WHERE type="table";')
+            cursor.execute("SELECT name, sql FROM sqlite_master WHERE type='table';")
             tables = cursor.fetchall()
             
             schema = {}
@@ -126,10 +126,10 @@ def get_tables_schema_with_deps(table_names: List[str]) -> str:
                 cursor = conn.cursor()
                 
                 tbl_schema = _get_table_schema_dict(cursor, tbl)
-                tbl_schema["is_requested_table"] = tbl in table_names
+                tbl_schema['is_requested_table'] = tbl in table_names
                 schemas[tbl] = tbl_schema
                 
-                for fk in tbl_schema["foreign_keys"]:
+                for fk in tbl_schema['foreign_keys']:
                     parent_table = fk['table']
                     if parent_table and parent_table not in visited:
                         to_visit.append(parent_table)
