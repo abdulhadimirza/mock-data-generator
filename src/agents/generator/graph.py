@@ -18,9 +18,9 @@ from .state import GeneratorState, TableSelectionResponse, CodeGeneratorResponse
 from .sandbox import run_in_sandbox
 
 # Top-level LLM Instantiation
-filter_llm = get_llm().with_structured_output(TableSelectionResponse)
+filter_llm = get_llm(structured_output=TableSelectionResponse)
 planner_llm = get_llm()
-code_gen_llm = get_llm().with_structured_output(CodeGeneratorResponse)
+code_gen_llm = get_llm(structured_output=CodeGeneratorResponse)
 
 def emit_progress(message: str):
     try:
@@ -45,6 +45,8 @@ def filter_tables_node(state: GeneratorState):
     messages = [SystemMessage(content=filter_prompt)] + list(state_messages)
     
     result = filter_llm.invoke(messages)
+
+    print(result)
     
     if hasattr(result, 'relevant_tables'):
         relevant_tables = result.relevant_tables
@@ -100,6 +102,7 @@ def code_generator_node(state: GeneratorState):
     prompt_messages = [SystemMessage(content=system_prompt)] + list(state_messages)
         
     response = code_gen_llm.invoke(prompt_messages)
+    print(response)
     python_code = response.python_code
         
     return {
