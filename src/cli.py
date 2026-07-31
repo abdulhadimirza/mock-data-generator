@@ -313,7 +313,7 @@ class CLIRenderer:
 
 @app.command()
 def main():
-    console.print(Panel.fit("[bold blue]Database Sandbox CLI[/bold blue]", border_style='blue'))
+    console.print(Panel.fit("[bold blue]Natural Language to SQL CLI[/bold blue]", border_style='blue'))
     
     agent = ChatAgent()
     renderer = CLIRenderer(console)
