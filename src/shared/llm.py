@@ -33,7 +33,7 @@ def get_llm(tools: Optional[List[Any]] = None):
     If tools are provided, tools are bound to both primary and fallback models.
     """
     if tools:
-        primary = gemini.bind_tools(tools)
-        fallback = deepseek.bind_tools(tools)
+        primary = deepseek.bind_tools(tools)#gemini.bind_tools(tools)
+        fallback = gemini.bind_tools(tools)#deepseek.bind_tools(tools)
         return primary.with_fallbacks([fallback])
-    return gemini.with_fallbacks([deepseek])
+    return deepseek.with_fallbacks([gemini])#gemini.with_fallbacks([deepseek])

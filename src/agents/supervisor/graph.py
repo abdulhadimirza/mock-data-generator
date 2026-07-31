@@ -36,8 +36,9 @@ generator_subagent_node = create_subagent_node(
     default_completion_msg='Mock Data Generator task completed.'
 )
 
+llm = get_llm(supervisor_tools)
+
 def supervisor_node(state):
-    llm = get_llm(supervisor_tools)
     state_messages = state.get('messages', []) if isinstance(state, dict) else getattr(state, 'messages', [])
     messages = [SystemMessage(content=supervisor_system_prompt)] + list(state_messages)
     response = llm.invoke(messages)
