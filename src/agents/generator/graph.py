@@ -138,31 +138,27 @@ def sandbox_execution_node(state: GeneratorState):
 
     try:
         process.start()
-        process.join(timeout=15)
-
-        if process.is_alive():
-            process.terminate()
-            process.join()
-            error_msg = "TimeoutError: Execution timed out after 15 seconds limit."
-            emit_progress("Sandbox execution timed out.")
+        
+        try:
+            success, message = result_queue.get(timeout=15)
+        except queue.Empty:
+            if process.is_alive():
+                process.terminate()
+                process.join()
+                error_msg = "TimeoutError: Execution timed out after 15 seconds limit."
+                emit_progress("Sandbox execution timed out.")
+            else:
+                error_msg = "Execution failed: No result returned from process."
+                emit_progress(f"Sandbox exception: {error_msg}")
+                
             error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{error_msg}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
             return {
                 'execution_result': f"Execution failed: {error_msg}",
                 'execution_error': error_msg,
                 'messages': [HumanMessage(content=error_feedback)]
             }
-
-        try:
-            success, message = result_queue.get_nowait()
-        except queue.Empty:
-            error_msg = "Execution failed: No result returned from process."
-            emit_progress(f"Sandbox exception: {error_msg}")
-            error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{error_msg}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
-            return {
-                'execution_result': error_msg,
-                'execution_error': error_msg,
-                'messages': [HumanMessage(content=error_feedback)]
-            }
+            
+        process.join()
 
         if success:
             emit_progress("Sandbox script execution succeeded!")
