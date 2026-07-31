@@ -23,9 +23,12 @@ SAFE_BUILTINS = {
     "abs": abs, "sum": sum, "any": any, "all": all, "isinstance": isinstance,
     "getattr": getattr, "hasattr": hasattr, "round": round, "map": map,
     "filter": filter, "sorted": sorted, "divmod": divmod, "pow": pow,
-    "ord": ord, "chr": chr, "hash": hash,
+    "ord": ord, "chr": chr, "hash": hash, "next": next, "iter": iter,
+    "reversed": reversed, "type": type, "format": format, "slice": slice, "repr": repr,
     "Exception": Exception, "ValueError": ValueError, "TypeError": TypeError,
-    "KeyError": KeyError, "AttributeError": AttributeError,
+    "KeyError": KeyError, "AttributeError": AttributeError, "IndexError": IndexError,
+    "ZeroDivisionError": ZeroDivisionError, "StopIteration": StopIteration,
+    "AssertionError": AssertionError,
     "__import__": safe_import
 }
 
@@ -81,6 +84,7 @@ def run_in_sandbox(code: str, safe_builtins: dict = None):
             "datetime": datetime,
             "uuid": uuid,
             "Faker": Faker,
+            "fake": Faker(),
             "get_db_connection": safe_get_db_connection
         }
 
