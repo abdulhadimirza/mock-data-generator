@@ -29,25 +29,25 @@ gemini = ChatGoogleGenerativeAI(
 )
 
 def get_llm(
+    primary: Any,
+    fallbacks: Optional[List[Any]] = None,
     tools: Optional[List[Any]] = None,
     structured_output: Optional[Any] = None,
 ):
     """
     Returns a resilient LLM runnable with transparent fallback handling.
-    Uses DeepSeek as the primary LLM and Gemini as the fallback LLM.
-    If tools or structured_output are provided, they are bound to both primary and fallback models FIRST,
+    If tools or structured_output are provided, they are bound to primary and fallback models FIRST,
     and then with_fallbacks is applied AFTER.
     """
-    primary = deepseek
-    fallback = gemini
-
     if tools:
         primary = primary.bind_tools(tools)
-        fallback = fallback.bind_tools(tools)
+        if fallbacks:
+            fallbacks = [f.bind_tools(tools) for f in fallbacks]
 
     if structured_output:
         primary = primary.with_structured_output(structured_output, strict=True)
-        fallback = fallback.with_structured_output(structured_output)
+        if fallbacks:
+            fallbacks = [f.with_structured_output(structured_output, strict=True) for f in fallbacks]
 
-    return primary.with_fallbacks([fallback])
+    return primary.with_fallbacks(fallbacks) if fallbacks else primary
 

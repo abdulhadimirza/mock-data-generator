@@ -8,7 +8,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.config import get_stream_writer
 
 from shared.tools import list_tables, get_tables_schema_with_deps
-from shared.llm import get_llm
+from shared.llm import get_llm, deepseek, gemini
 from .prompts import (
     generator_planner_system_prompt,
     code_generator_system_prompt,
@@ -18,9 +18,9 @@ from .state import GeneratorState, TableSelectionResponse, CodeGeneratorResponse
 from .sandbox import run_in_sandbox
 
 # Top-level LLM Instantiation
-filter_llm = get_llm(structured_output=TableSelectionResponse)
-planner_llm = get_llm()
-code_gen_llm = get_llm(structured_output=CodeGeneratorResponse)
+filter_llm = get_llm(primary=deepseek, fallbacks=[gemini], structured_output=TableSelectionResponse)
+planner_llm = get_llm(primary=deepseek, fallbacks=[gemini])
+code_gen_llm = get_llm(primary=deepseek, fallbacks=[gemini], structured_output=CodeGeneratorResponse)
 
 def emit_progress(message: str):
     try:

@@ -4,15 +4,16 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from .tools import editor_tools
-from shared.llm import get_llm
+from shared.llm import get_llm, deepseek, gemini
 from .prompts import editor_system_prompt
+
+editor_llm = get_llm(primary=deepseek, fallbacks=[gemini], tools=editor_tools)
 
 # 1. Create Data Editor Subgraph
 def editor_node(state):
-    llm = get_llm(editor_tools)
     state_messages = state.get('messages', []) if isinstance(state, dict) else getattr(state, 'messages', [])
     messages = [SystemMessage(content=editor_system_prompt)] + list(state_messages)
-    response = llm.invoke(messages)
+    response = editor_llm.invoke(messages)
     return {'messages': [response]}
 
 editor_workflow = StateGraph(MessagesState)
