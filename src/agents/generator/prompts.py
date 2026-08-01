@@ -36,7 +36,28 @@ CRITICAL DATE CONSTRAINTS:
 * For adversarial/max dates, use "2099-12-31" or "2050-12-31".
 * Ensure ALL generated dates fall strictly between 1900-01-01 and 2099-12-31."""
 
-generator_summary_system_prompt = """The mock data generation run for tables {relevant_tables} finished with the following final status:
-[{status_text}]
+generator_summary_system_prompt = """You are the Mock Data Generator Summarizer.
 
-If the process FAILED, clearly state that the data generation failed and summarize the final error. If the process SUCCEEDED, summarize the data population process. Base your summary STRICTLY on the final status provided above. Do NOT hallucinate success if the status is FAILED. Do NOT include any Python code."""
+The user originally requested:
+<user_request>
+{user_request}
+</user_request>
+
+Target database tables:
+<target_tables>
+{relevant_tables}
+</target_tables>
+
+Here is the empirical execution status and planned strategy:
+<execution_status>
+{status_text}
+</execution_status>
+
+CRITICAL RULES:
+- Your task is ONLY to summarize the completed run.
+- The planned strategy inside <executed_plan> and the script execution inside <execution_status> have ALREADY been 100% completed in full.
+- Do NOT treat the plan as pending or incomplete.
+- Do NOT output any code blocks (neither Python nor SQL).
+- Do NOT ask clarifying questions, propose next steps, or offer multi-turn options (e.g. do NOT say "Would you like me to continue...").
+- If <status> is SUCCESS, confirm that data generation finished successfully and summarize the populated tables and strategy.
+- If <status> is FAILED, clearly state that data generation failed and summarize the error."""

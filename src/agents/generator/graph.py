@@ -215,24 +215,24 @@ def summary_node(state: GeneratorState, config: RunnableConfig = None):
     generated_plan = state.get('generated_plan', '')
     
     if execution_error:
-        status_text = f"FAILED with error:\n{execution_error}"
+        status_text = f"<status>FAILED</status>\n<error_details>\n{execution_error}\n</error_details>"
     else:
-        status_text = f"SUCCESS:\n{execution_result}"
+        status_text = f"<status>SUCCESS</status>\n<execution_output>\n{execution_result}\n</execution_output>"
         
     if generated_plan:
-        status_text += f"\n\nPlanned Strategy Executed:\n{generated_plan}"
+        status_text += f"\n\n<executed_plan>\n{generated_plan}\n</executed_plan>"
     
+    user_req = _extract_initial_user_request(state_messages)
+    user_req_text = user_req.content if (user_req and hasattr(user_req, 'content')) else ""
+
     summary_prompt = generator_summary_system_prompt.format(
+        user_request=user_req_text,
         relevant_tables=", ".join(relevant_tables),
         status_text=status_text,
     )
-    user_req = _extract_initial_user_request(state_messages)
     messages = [SystemMessage(content=summary_prompt)]
-    if user_req:
-        messages.append(user_req)
 
     response = summary_llm.invoke(messages, config=config)
-    return {'messages': [response]}
     return {'messages': [response]}
 
 # 7. Conditional Edge Router for Error Refinement
