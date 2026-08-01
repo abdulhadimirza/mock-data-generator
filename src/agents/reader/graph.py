@@ -4,10 +4,10 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from .tools import reader_tools
-from shared.llm import get_llm, deepseek, gemini
+from shared.llm import get_llm, deepseek_reader, gemini_reader
 from .prompts import reader_system_prompt
 
-reader_llm = get_llm(primary=deepseek, fallbacks=[gemini], tools=reader_tools)
+reader_llm = get_llm(primary=deepseek_reader, fallbacks=[gemini_reader], tools=reader_tools)
 
 # 1. Create Database Reader Subgraph
 def reader_node(state):

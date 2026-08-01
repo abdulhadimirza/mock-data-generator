@@ -4,10 +4,10 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from .tools import editor_tools
-from shared.llm import get_llm, deepseek, gemini
+from shared.llm import get_llm, deepseek_editor, gemini_editor
 from .prompts import editor_system_prompt
 
-editor_llm = get_llm(primary=deepseek, fallbacks=[gemini], tools=editor_tools)
+editor_llm = get_llm(primary=deepseek_editor, fallbacks=[gemini_editor], tools=editor_tools)
 
 # 1. Create Data Editor Subgraph
 def editor_node(state):

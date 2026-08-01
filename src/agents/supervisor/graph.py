@@ -1,7 +1,7 @@
 from langchain_core.messages import SystemMessage
 from langgraph.graph import StateGraph, MessagesState, START, END
 
-from shared.llm import get_llm, deepseek, gemini
+from shared.llm import get_llm, deepseek_supervisor, gemini_supervisor
 from .prompts import supervisor_system_prompt
 from .routing import route_supervisor
 
@@ -36,7 +36,7 @@ generator_subagent_node = create_subagent_node(
     default_completion_msg='Mock Data Generator task completed.'
 )
 
-supervisor_llm = get_llm(primary=deepseek, fallbacks=[gemini], tools=supervisor_tools)
+supervisor_llm = get_llm(primary=deepseek_supervisor, fallbacks=[gemini_supervisor], tools=supervisor_tools)
 
 def supervisor_node(state):
     state_messages = state.get('messages', []) if isinstance(state, dict) else getattr(state, 'messages', [])

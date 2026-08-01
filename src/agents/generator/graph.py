@@ -8,7 +8,13 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.config import get_stream_writer
 
 from shared.tools import list_tables, get_tables_schema_with_deps
-from shared.llm import get_llm, deepseek, gemini
+from shared.llm import (
+    get_llm,
+    deepseek_filter, gemini_filter,
+    deepseek_planner, gemini_planner,
+    deepseek_code_gen, gemini_code_gen,
+    deepseek_summary, gemini_summary,
+)
 from .prompts import (
     generator_planner_system_prompt,
     code_generator_system_prompt,
@@ -16,11 +22,6 @@ from .prompts import (
 )
 from .state import GeneratorState, TableSelectionResponse, CodeGeneratorResponse
 from .sandbox import run_in_sandbox
-
-# Top-level LLM Instantiation
-filter_llm = get_llm(primary=deepseek, fallbacks=[gemini], structured_output=TableSelectionResponse)
-planner_llm = get_llm(primary=deepseek, fallbacks=[gemini])
-code_gen_llm = get_llm(primary=deepseek, fallbacks=[gemini], structured_output=CodeGeneratorResponse)
 
 def emit_progress(message: str):
     try:
@@ -34,6 +35,7 @@ def emit_progress(message: str):
         pass
 
 # 1. Stateless Filter Node
+filter_llm = get_llm(primary=deepseek_filter, fallbacks=[gemini_filter], structured_output=TableSelectionResponse)
 def filter_tables_node(state: GeneratorState):
     emit_progress("Filtering relevant database tables...")
     tables = list_tables.invoke({})
@@ -68,6 +70,7 @@ def fetch_schema_node(state: GeneratorState):
     return {'schema_map': schema_map}
 
 # 3. Mock Data Generator Planner Node
+planner_llm = get_llm(primary=deepseek_planner, fallbacks=[gemini_planner])
 def generator_planner_node(state: GeneratorState):
     emit_progress("Planning mock data generation strategy...")
     state_messages = state.get('messages', [])
@@ -86,6 +89,7 @@ def generator_planner_node(state: GeneratorState):
     return {'generated_plan': response.content}
 
 # 4. Code Generator Node
+code_gen_llm = get_llm(primary=deepseek_code_gen, fallbacks=[gemini_code_gen], structured_output=CodeGeneratorResponse)
 def code_generator_node(state: GeneratorState):
     current_retries = state.get('retry_count', 0)
     emit_progress(f"Generating Python data insertion script (Attempt {current_retries + 1})...")
@@ -200,6 +204,7 @@ def _extract_initial_user_request(state_messages):
     return None
 
 # 6. Summary Node
+summary_llm = get_llm(primary=deepseek_summary, fallbacks=[gemini_summary])
 def summary_node(state: GeneratorState):
     emit_progress("Generating final summary...")
     state_messages = state.get('messages', [])
@@ -225,7 +230,7 @@ def summary_node(state: GeneratorState):
     if user_req:
         messages.append(user_req)
 
-    response = planner_llm.invoke(messages)
+    response = summary_llm.invoke(messages)
     return {'messages': [response]}
 
 # 7. Conditional Edge Router for Error Refinement
