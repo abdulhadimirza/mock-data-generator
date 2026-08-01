@@ -1,9 +1,11 @@
 import os
 from typing import Optional, List, Any
 
-from langchain_core.messages import SystemMessage
 from langchain_deepseek import ChatDeepSeek
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+from langchain_core.runnables import RunnableWithFallbacks
+from langchain_core.language_models import BaseChatModel
 
 def create_deepseek_llm(reasoning_effort: str = 'low', temperature: float = 1.0) -> ChatDeepSeek:
     kwargs = {
@@ -69,17 +71,26 @@ deepseek_supervisor = create_deepseek_llm(reasoning_effort='low', temperature=1.
 gemini_supervisor = create_gemini_llm(thinking_level='low')
 
 
+# Model Fallback Configuration Flag
+# Set to True to make Gemini primary and DeepSeek fallback across all agents.
+USE_GEMINI_AS_PRIMARY: bool = os.environ.get("USE_GEMINI_AS_PRIMARY", "False").lower() in ("true", "1", "yes")
+
+
 def get_llm(
-    primary: Any,
-    fallbacks: Optional[List[Any]] = None,
+    primary: BaseChatModel,
+    fallbacks: Optional[List[BaseChatModel]] = None,
     tools: Optional[List[Any]] = None,
     structured_output: Optional[Any] = None,
-):
+) -> BaseChatModel | RunnableWithFallbacks:
     """
     Returns a resilient LLM runnable with transparent fallback handling.
+    If USE_GEMINI_AS_PRIMARY is True, primary and fallback models are swapped.
     If tools or structured_output are provided, they are bound to primary and fallback models FIRST,
     and then with_fallbacks is applied AFTER.
     """
+    if USE_GEMINI_AS_PRIMARY and fallbacks:
+        primary, fallbacks = fallbacks[0], [primary] + fallbacks[1:]
+
     if tools:
         primary = primary.bind_tools(tools)
         if fallbacks:
@@ -91,4 +102,5 @@ def get_llm(
             fallbacks = [f.with_structured_output(structured_output, strict=True) for f in fallbacks]
 
     return primary.with_fallbacks(fallbacks) if fallbacks else primary
+
 

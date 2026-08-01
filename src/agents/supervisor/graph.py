@@ -1,4 +1,11 @@
+import logfire
+logfire.configure(
+    console=False,
+    send_to_logfire='if-token-present'
+)
+
 from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, MessagesState, START, END
 
 from shared.llm import get_llm, deepseek_supervisor, gemini_supervisor
@@ -38,10 +45,10 @@ generator_subagent_node = create_subagent_node(
 
 supervisor_llm = get_llm(primary=deepseek_supervisor, fallbacks=[gemini_supervisor], tools=supervisor_tools)
 
-def supervisor_node(state):
+def supervisor_node(state, config: RunnableConfig = None):
     state_messages = state.get('messages', []) if isinstance(state, dict) else getattr(state, 'messages', [])
     messages = [SystemMessage(content=supervisor_system_prompt)] + list(state_messages)
-    response = supervisor_llm.invoke(messages)
+    response = supervisor_llm.invoke(messages, config=config)
     return {'messages': [response]}
 
 def build_agent():

@@ -1,4 +1,5 @@
 from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -10,10 +11,10 @@ from .prompts import editor_system_prompt
 editor_llm = get_llm(primary=deepseek_editor, fallbacks=[gemini_editor], tools=editor_tools)
 
 # 1. Create Data Editor Subgraph
-def editor_node(state):
+def editor_node(state, config: RunnableConfig = None):
     state_messages = state.get('messages', []) if isinstance(state, dict) else getattr(state, 'messages', [])
     messages = [SystemMessage(content=editor_system_prompt)] + list(state_messages)
-    response = editor_llm.invoke(messages)
+    response = editor_llm.invoke(messages, config=config)
     return {'messages': [response]}
 
 editor_workflow = StateGraph(MessagesState)

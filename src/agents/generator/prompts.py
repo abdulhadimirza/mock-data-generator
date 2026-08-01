@@ -27,7 +27,14 @@ EXECUTION RULES:
   - Extract primitives when fetching FKs (e.g., `[row[0] for row in cursor.fetchall()]`). Never pass `sqlite3.Row` objects directly.
   - Convert complex types (`UUID`, `datetime.date`, `Decimal`) to SQLite-compatible primitives (`str`, `int`, `float`) before binding.
 * Dependency Flow: Populate parent/lookup tables before child tables to satisfy Foreign Key constraints.
-* Error Recovery: Self-contained code only. If an execution error trace is provided, diagnose the exception and fix the logic directly."""
+* Error Recovery: Self-contained code only. If an execution error trace is provided, diagnose the exception and fix the logic directly.
+
+CRITICAL DATE CONSTRAINTS:
+* NEVER output the strings "0001-01-01" or "9999-12-31".
+* Python's `datetime` module crashes with OverflowError on those boundary years.
+* For adversarial/min dates, use "1900-01-01" or "1970-01-01".
+* For adversarial/max dates, use "2099-12-31" or "2050-12-31".
+* Ensure ALL generated dates fall strictly between 1900-01-01 and 2099-12-31."""
 
 generator_summary_system_prompt = """The mock data generation run for tables {relevant_tables} finished with the following final status:
 [{status_text}]

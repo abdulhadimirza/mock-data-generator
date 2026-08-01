@@ -1,4 +1,5 @@
 from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -10,10 +11,10 @@ from .prompts import reader_system_prompt
 reader_llm = get_llm(primary=deepseek_reader, fallbacks=[gemini_reader], tools=reader_tools)
 
 # 1. Create Database Reader Subgraph
-def reader_node(state):
+def reader_node(state, config: RunnableConfig = None):
     state_messages = state.get('messages', []) if isinstance(state, dict) else getattr(state, 'messages', [])
     messages = [SystemMessage(content=reader_system_prompt)] + list(state_messages)
-    response = reader_llm.invoke(messages)
+    response = reader_llm.invoke(messages, config=config)
     return {'messages': [response]}
 
 reader_workflow = StateGraph(MessagesState)
