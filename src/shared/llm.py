@@ -65,7 +65,7 @@ deepseek_planner: ChatDeepSeek = create_deepseek_llm(reasoning_effort='high', te
 gemini_planner: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='high')
 
 deepseek_code_gen: ChatDeepSeek = create_deepseek_llm(reasoning_effort='low', temperature=0.0)
-gemini_code_gen: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='medium')
+gemini_code_gen: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
 
 deepseek_summary: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=1.3)
 gemini_summary: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
