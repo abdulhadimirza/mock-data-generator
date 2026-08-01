@@ -1,3 +1,10 @@
+generator_filter_system_prompt = """Available tables in database:
+<available_tables>
+{tables}
+</available_tables>
+
+Based on the user query, return only the list of table names relevant for generating data."""
+
 generator_planner_system_prompt = """You are the Mock Data Generator Planner.
 
 Your role is to create an adversarial, robust, and comprehensive plan for generating mock database data based on the user request and schema.

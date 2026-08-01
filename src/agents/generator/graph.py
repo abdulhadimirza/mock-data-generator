@@ -17,6 +17,7 @@ from shared.llm import (
     deepseek_summary, gemini_summary,
 )
 from .prompts import (
+    generator_filter_system_prompt,
     generator_planner_system_prompt,
     code_generator_system_prompt,
     generator_summary_system_prompt,
@@ -40,10 +41,7 @@ filter_llm = get_llm(primary=deepseek_filter, fallbacks=[gemini_filter], structu
 def filter_tables_node(state: GeneratorState, config: RunnableConfig = None):
     emit_progress("Filtering relevant database tables...")
     tables = list_tables.invoke({})
-    filter_prompt = (
-        f"Available tables in database:\n{tables}\n\n"
-        "Based on the user query, return only the list of table names relevant for generating data."
-    )
+    filter_prompt = generator_filter_system_prompt.format(tables=tables)
     state_messages = state.get('messages', [])
     messages = [SystemMessage(content=filter_prompt)] + list(state_messages)
     
@@ -80,9 +78,9 @@ def generator_planner_node(state: GeneratorState, config: RunnableConfig = None)
     
     system_prompt = generator_planner_system_prompt
     if relevant_tables:
-        system_prompt += f"\n\nRelevant tables identified for this request: {', '.join(relevant_tables)}"
+        system_prompt += f"\n\nRelevant tables identified for this request:\n<relevant_tables>\n{', '.join(relevant_tables)}\n</relevant_tables>"
     if schema_map:
-        system_prompt += f"\n\nSchema map of relevant tables:\n{schema_map}"
+        system_prompt += f"\n\nSchema map of relevant tables:\n<schema_map>\n{schema_map}\n</schema_map>"
         
     messages = [SystemMessage(content=system_prompt)] + list(state_messages)
 
@@ -100,9 +98,9 @@ def code_generator_node(state: GeneratorState, config: RunnableConfig = None):
     
     system_prompt = code_generator_system_prompt
     if schema_map:
-        system_prompt += f"\n\nTarget Database Schema:\n{schema_map}"
+        system_prompt += f"\n\nTarget Database Schema:\n<target_database_schema>\n{schema_map}\n</target_database_schema>"
     if generated_plan:
-        system_prompt += f"\n\nExecution Plan:\n{generated_plan}"
+        system_prompt += f"\n\nExecution Plan:\n<execution_plan>\n{generated_plan}\n</execution_plan>"
         
     prompt_messages = [SystemMessage(content=system_prompt)] + list(state_messages)
         
@@ -160,7 +158,7 @@ def sandbox_execution_node(state: GeneratorState):
                 
             process.join()
                 
-            error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{error_msg}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
+            error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n<execution_error>\n{error_msg}\n</execution_error>\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
             return {
                 'execution_result': f"Execution failed: {error_msg}",
                 'execution_error': error_msg,
@@ -177,7 +175,7 @@ def sandbox_execution_node(state: GeneratorState):
             }
         else:
             emit_progress(f"Sandbox execution error: {message[:60]}...")
-            error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{message}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
+            error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n<execution_error>\n{message}\n</execution_error>\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
             return {
                 'execution_result': f"Execution failed: {message}",
                 'execution_error': message,
@@ -191,7 +189,7 @@ def sandbox_execution_node(state: GeneratorState):
 
         error_msg = f"{type(e).__name__}: {str(e)}"
         emit_progress(f"Sandbox exception: {error_msg[:60]}...")
-        error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n{error_msg}\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
+        error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n<execution_error>\n{error_msg}\n</execution_error>\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
         return {
             'execution_result': f"Execution failed: {error_msg}",
             'execution_error': error_msg,
