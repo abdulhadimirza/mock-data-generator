@@ -6,33 +6,26 @@ from contextlib import contextmanager
 from faker import Faker
 from database import get_db_connection
 
-def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
-    allowed_modules = {
-        'sqlite3', '_sqlite3', 'random', '_random',
-        'datetime', '_datetime', '_strptime', 'uuid',
-        'faker', 'math', 'time', 'decimal'
-    }
-    if name in allowed_modules:
-        return __import__(name, globals, locals, fromlist, level)
-    raise ImportError(f"Import of module '{name}' is forbidden in sandbox environment.")
+import builtins
 
-SAFE_BUILTINS = {
-    'range': range, 'len': len, 'str': str, 'int': int, 'float': float,
-    'bool': bool, 'list': list, 'dict': dict, 'set': set, 'tuple': tuple,
-    'print': print, 'enumerate': enumerate, 'zip': zip, 'min': min, 'max': max,
-    'abs': abs, 'sum': sum, 'any': any, 'all': all, 'isinstance': isinstance,
-    'getattr': getattr, 'hasattr': hasattr, 'round': round, 'map': map,
-    'filter': filter, 'sorted': sorted, 'divmod': divmod, 'pow': pow,
-    'ord': ord, 'chr': chr, 'hash': hash, 'next': next, 'iter': iter,
-    'reversed': reversed, 'type': type, 'format': format, 'slice': slice, 'repr': repr,
-    'Exception': Exception, 'ValueError': ValueError, 'TypeError': TypeError,
-    'KeyError': KeyError, 'AttributeError': AttributeError, 'IndexError': IndexError,
-    'ZeroDivisionError': ZeroDivisionError, 'StopIteration': StopIteration,
-    'AssertionError': AssertionError,
-    '__import__': safe_import,
-    'globals': globals,
-    'locals': locals
-}
+def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+    forbidden_modules = {
+        'os', 'sys', 'subprocess', 'shutil', 'socket', 'importlib', 
+        'multiprocessing', 'threading', 'ctypes', 'winreg', 'pty', 'fcntl',
+        'builtins', 'gc', 'pdb', 'syslog', 'urllib', 'http'
+    }
+    
+    root_module = name.split('.')[0]
+    if root_module in forbidden_modules:
+        raise ImportError(f"Import of module '{name}' is forbidden in sandbox environment.")
+        
+    return __import__(name, globals, locals, fromlist, level)
+
+SAFE_BUILTINS = {k: v for k, v in builtins.__dict__.items() if k not in {
+    'eval', 'exec', 'open', 'compile', '__import__', 'input', 'breakpoint',
+    'memoryview', 'delattr', 'setattr', 'globals', 'locals', 'vars'
+}}
+SAFE_BUILTINS['__import__'] = safe_import
 
 def run_in_sandbox(code: str, safe_builtins: dict = None):
     if safe_builtins is None:

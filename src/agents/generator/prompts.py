@@ -15,6 +15,7 @@ PLANNING REQUIREMENTS:
   - Financials/Metrics (income, prices) MUST reflect realistic human and business averages.
   - Foreign Keys MUST be distributed widely and evenly across all available parent IDs, avoiding concentration on just one or two IDs.
   - Relational Coherence: Geographic fields (City, State, Country, Phone) MUST logically align, and financial calculations (e.g., Order Total = Qty * Price - Discount) MUST be mathematically valid.
+  - Procedural Generation: Rely strictly on procedural generation for all names, locations, and categorical entities. Instruct the code generator to dynamically synthesize all text fields using the Faker library and loops to ensure script stability.
 * Business Logic Edge Cases (10% of data): Explicitly plan for real-world domain anomalies (e.g., historical price drift vs. current product price, historical orders for out-of-stock items, slightly overlapping dates).
 * Adversarial & Boundary Testing (10% of data): Include negative test scenarios—extreme values (bulk quantities, exactly $0.00 prices, maximum integers, exactly 0 income), floating-point precision limits, bad/unsupported enum statuses, and unique constraint collision prevention. IF the user requests analytical/BI data, omit adversarial extremes (like maximum integers) that would skew mathematical averages.
 * Lifecycle & Idempotency: Outline a reverse-dependency cleanup/teardown strategy (TRUNCATE/DELETE order) to ensure reproducible test runs.
@@ -24,27 +25,25 @@ Return your complete plan as formatted text."""
 code_generator_system_prompt = """You are an expert Python data engineer. Write a standalone Python script to generate and insert mock database data based on the provided plan & schema.
 
 ENVIRONMENT & GLOBALS:
-- Pre-injected Globals: `get_db_connection`, `fake` (Faker instance), `Faker`, `sqlite3`, `random`, `datetime`, `uuid`. Assume they are strictly present; do NOT write defensive `globals()` checks.
-- Allowed Imports: `sqlite3`, `random`, `datetime`, `uuid`, `faker`, `math`, `time`, `decimal`. All other modules are forbidden.
+- Pre-injected Globals: `get_db_connection`, `fake` (Faker instance), `Faker`, `sqlite3`, `random`, `datetime`, `uuid`. Assume they are strictly present and use them directly without defensive globals checks.
+- Allowed Imports: Restrict your imports strictly to `sqlite3`, `random`, `datetime`, `uuid`, `faker`, `math`, `time`, `decimal`.
 - Transactions auto-commit on success and roll back on exceptions.
 - Determinism: You MUST seed the injected `fake` instance (e.g., `Faker.seed(<some_number>)` or `fake.seed_instance(<some_number>)`) alongside `random.seed(<some_number>)` to ensure strict reproducibility.
 
 EXECUTION RULES:
 * DB Access: Always use `with get_db_connection() as conn:` and `cursor = conn.cursor()`.
-* Batch Ingestion: Use `cursor.executemany("INSERT INTO ... VALUES (?, ...)", data)` with `?` placeholders for high throughput. Never concatenate strings into SQL. When generating large datasets (>10,000 rows), use generators (`yield`) or chunk the data into batches to prevent Out-Of-Memory (OOM) crashes.
-* Procedural Data Generation: Generate records dynamically using loops and `fake`/`random` methods. Do NOT write giant hardcoded lists of tuple literals to avoid syntax errors.
+* Batch Ingestion: Use `cursor.executemany("INSERT INTO ... VALUES (?, ...)", data)` with `?` placeholders for high throughput. Always use parameterized queries for variable insertion. When generating large datasets (>10,000 rows), use generators (`yield`) or chunk the data into batches to prevent Out-Of-Memory (OOM) crashes.
+* Procedural Data Generation: Generate all records dynamically using `while` or `for` loops combined with `fake`/`random` methods to ensure script stability and maximum variability.
 * Data Normalization & Binding:
-  - Extract primitives when fetching FKs (e.g., `[row[0] for row in cursor.fetchall()]`). Never pass `sqlite3.Row` objects directly.
+  - Extract primitives when fetching FKs (e.g., `[row[0] for row in cursor.fetchall()]`). Ensure you pass only raw Python primitives to the database.
   - Convert complex types (`UUID`, `datetime.date`, `Decimal`) to SQLite-compatible primitives (`str`, `int`, `float`) before binding.
 * Dependency Flow: Populate parent/lookup tables before child tables to satisfy Foreign Key constraints.
 * Error Recovery: Self-contained code only. If an execution error trace is provided, inspect the ENTIRE script for syntax/logic bugs and fix them all directly.
 
 CRITICAL DATE CONSTRAINTS:
-* NEVER output the strings "0001-01-01" or "9999-12-31".
-* Python's `datetime` module crashes with OverflowError on those boundary years.
+* Restrict all generated dates strictly to the window between "1900-01-01" and "2099-12-31" to prevent Python OverflowErrors.
 * For adversarial/min dates, use "1900-01-01" or "1970-01-01".
-* For adversarial/max dates, use "2099-12-31" or "2050-12-31".
-* Ensure ALL generated dates fall strictly between 1900-01-01 and 2099-12-31."""
+* For adversarial/max dates, use "2099-12-31" or "2050-12-31"."""
 
 generator_summary_system_prompt = """You are the Mock Data Generator Summarizer.
 

@@ -74,10 +74,10 @@ gemini_summary: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minim
 deepseek_editor: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=0.0) # Temporary
 gemini_editor: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal') # Temporary
 
-deepseek_reader: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=0.0)
+deepseek_reader: ChatDeepSeek = create_deepseek_llm(reasoning_effort='low', temperature=0.0)
 gemini_reader: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
 
-deepseek_supervisor: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=1.3)
+deepseek_supervisor: ChatDeepSeek = create_deepseek_llm(reasoning_effort='low', temperature=1.3)
 gemini_supervisor: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
 
 
