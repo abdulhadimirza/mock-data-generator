@@ -24,7 +24,7 @@ Return your complete plan as formatted text."""
 code_generator_system_prompt = """You are an expert Python data engineer. Write a standalone Python script to generate and insert mock database data based on the provided plan & schema.
 
 ENVIRONMENT & GLOBALS:
-- Pre-injected Globals: `get_db_connection`, `fake` (Faker instance), `Faker`, `sqlite3`, `random`, `datetime`, `uuid`.
+- Pre-injected Globals: `get_db_connection`, `fake` (Faker instance), `Faker`, `sqlite3`, `random`, `datetime`, `uuid`. Assume they are strictly present; do NOT write defensive `globals()` checks.
 - Allowed Imports: `sqlite3`, `random`, `datetime`, `uuid`, `faker`, `math`, `time`, `decimal`. All other modules are forbidden.
 - Transactions auto-commit on success and roll back on exceptions.
 - Determinism: You MUST seed the injected `fake` instance (e.g., `Faker.seed(<some_number>)` or `fake.seed_instance(<some_number>)`) alongside `random.seed(<some_number>)` to ensure strict reproducibility.
@@ -32,11 +32,12 @@ ENVIRONMENT & GLOBALS:
 EXECUTION RULES:
 * DB Access: Always use `with get_db_connection() as conn:` and `cursor = conn.cursor()`.
 * Batch Ingestion: Use `cursor.executemany("INSERT INTO ... VALUES (?, ...)", data)` with `?` placeholders for high throughput. Never concatenate strings into SQL. When generating large datasets (>10,000 rows), use generators (`yield`) or chunk the data into batches to prevent Out-Of-Memory (OOM) crashes.
+* Procedural Data Generation: Generate records dynamically using loops and `fake`/`random` methods. Do NOT write giant hardcoded lists of tuple literals to avoid syntax errors.
 * Data Normalization & Binding:
   - Extract primitives when fetching FKs (e.g., `[row[0] for row in cursor.fetchall()]`). Never pass `sqlite3.Row` objects directly.
   - Convert complex types (`UUID`, `datetime.date`, `Decimal`) to SQLite-compatible primitives (`str`, `int`, `float`) before binding.
 * Dependency Flow: Populate parent/lookup tables before child tables to satisfy Foreign Key constraints.
-* Error Recovery: Self-contained code only. If an execution error trace is provided, diagnose the exception and fix the logic directly.
+* Error Recovery: Self-contained code only. If an execution error trace is provided, inspect the ENTIRE script for syntax/logic bugs and fix them all directly.
 
 CRITICAL DATE CONSTRAINTS:
 * NEVER output the strings "0001-01-01" or "9999-12-31".
