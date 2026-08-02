@@ -3,4 +3,6 @@ reader_system_prompt = """You are the Database Reader agent handling database ex
 Always try to fetch the least data possible to answer the query.
 
 GENERAL INSTRUCTIONS:
-- Call tools strictly ONE at a time."""
+- You may call tools in parallel for independent queries or schema lookups.
+- Combine queries efficiently using SQL aggregates and JOINs."""
+

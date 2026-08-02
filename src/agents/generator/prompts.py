@@ -11,11 +11,12 @@ Your role is to create an adversarial, robust, and comprehensive plan for genera
 
 PLANNING REQUIREMENTS:
 * Normal Cases & Distribution (80% of data): Specify that the majority of data MUST follow a realistic, normal bell-curve distribution. 
-  - Dates (creation, purchase, expiry) MUST be highly randomized across a wide, continuous time range (e.g., spread across 5-10 years) with no clustering on single days.
+  - Dates (creation, purchase, expiry) MUST be highly randomized across a wide, continuous time range (e.g., spread across 5-10 years) with no clustering on single days. Timestamps MUST include randomized hours, minutes, and seconds to avoid clustering at the exact same time of day.
   - Financials/Metrics (income, prices) MUST reflect realistic human and business averages.
   - Foreign Keys MUST be distributed widely and evenly across all available parent IDs, avoiding concentration on just one or two IDs.
+  - Relational Coherence: Geographic fields (City, State, Country, Phone) MUST logically align, and financial calculations (e.g., Order Total = Qty * Price - Discount) MUST be mathematically valid.
 * Business Logic Edge Cases (10% of data): Explicitly plan for real-world domain anomalies (e.g., historical price drift vs. current product price, historical orders for out-of-stock items, slightly overlapping dates).
-* Adversarial & Boundary Testing (10% of data): Include negative test scenarios—extreme values (bulk quantities, exactly $0.00 prices, maximum integers, exactly 0 income), floating-point precision limits, bad/unsupported enum statuses, and unique constraint collision prevention.
+* Adversarial & Boundary Testing (10% of data): Include negative test scenarios—extreme values (bulk quantities, exactly $0.00 prices, maximum integers, exactly 0 income), floating-point precision limits, bad/unsupported enum statuses, and unique constraint collision prevention. IF the user requests analytical/BI data, omit adversarial extremes (like maximum integers) that would skew mathematical averages.
 * Lifecycle & Idempotency: Outline a reverse-dependency cleanup/teardown strategy (TRUNCATE/DELETE order) to ensure reproducible test runs.
 
 Return your complete plan as formatted text."""
@@ -26,10 +27,11 @@ ENVIRONMENT & GLOBALS:
 - Pre-injected Globals: `get_db_connection`, `fake` (Faker instance), `Faker`, `sqlite3`, `random`, `datetime`, `uuid`.
 - Allowed Imports: `sqlite3`, `random`, `datetime`, `uuid`, `faker`, `math`, `time`, `decimal`. All other modules are forbidden.
 - Transactions auto-commit on success and roll back on exceptions.
+- Determinism: You MUST seed the injected `fake` instance (e.g., `Faker.seed(<some_number>)` or `fake.seed_instance(<some_number>)`) alongside `random.seed(<some_number>)` to ensure strict reproducibility.
 
 EXECUTION RULES:
 * DB Access: Always use `with get_db_connection() as conn:` and `cursor = conn.cursor()`.
-* Batch Ingestion: Use `cursor.executemany("INSERT INTO ... VALUES (?, ...)", data)` with `?` placeholders for high throughput. Never concatenate strings into SQL.
+* Batch Ingestion: Use `cursor.executemany("INSERT INTO ... VALUES (?, ...)", data)` with `?` placeholders for high throughput. Never concatenate strings into SQL. When generating large datasets (>10,000 rows), use generators (`yield`) or chunk the data into batches to prevent Out-Of-Memory (OOM) crashes.
 * Data Normalization & Binding:
   - Extract primitives when fetching FKs (e.g., `[row[0] for row in cursor.fetchall()]`). Never pass `sqlite3.Row` objects directly.
   - Convert complex types (`UUID`, `datetime.date`, `Decimal`) to SQLite-compatible primitives (`str`, `int`, `float`) before binding.

@@ -12,7 +12,7 @@ def _get_table_schema_dict(cursor, table_name: str, create_sql: Optional[str] = 
         create_sql = row['sql'] if row else ''
 
     # Column info
-    cursor.execute(f'PRAGMA table_info({table_name});')
+    cursor.execute(f'PRAGMA table_info("{table_name}");')
     cols = cursor.fetchall()
     columns_info = [
         {
@@ -27,7 +27,7 @@ def _get_table_schema_dict(cursor, table_name: str, create_sql: Optional[str] = 
     ]
 
     # Foreign key info
-    cursor.execute(f'PRAGMA foreign_key_list({table_name});')
+    cursor.execute(f'PRAGMA foreign_key_list("{table_name}");')
     fks = cursor.fetchall()
     fk_info = [
         {
@@ -44,12 +44,12 @@ def _get_table_schema_dict(cursor, table_name: str, create_sql: Optional[str] = 
     ]
 
     # Index / Unique info
-    cursor.execute(f'PRAGMA index_list({table_name});')
+    cursor.execute(f'PRAGMA index_list("{table_name}");')
     idx_list = cursor.fetchall()
     unique_constraints = []
     for idx in idx_list:
         if idx['unique']:
-            cursor.execute(f'PRAGMA index_info({idx["name"]});')
+            cursor.execute(f'PRAGMA index_info("{idx["name"]}");')
             idx_cols = [c['name'] for c in cursor.fetchall()]
             unique_constraints.append({
                 'name': idx['name'],

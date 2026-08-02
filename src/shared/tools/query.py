@@ -2,7 +2,7 @@ import sqlglot
 from sqlglot import exp
 from langchain_core.tools import tool, ToolException
 from database import get_readonly_connection
-from .helpers import create_timeout_handler, parse_sql_statements, verify_table_exists
+from .helpers import create_timeout_handler, parse_sql_statements, verify_table_exists, format_row
 
 @tool()
 def execute_select_query(sql_query: str) -> str:
@@ -40,7 +40,7 @@ def execute_select_query(sql_query: str) -> str:
                 else:
                     lines = [stmt_hdr]
                     for row in output_rows:
-                        lines.append(str(dict(row)))
+                        lines.append(str(format_row(dict(row))))
                     if len(rows) > 100:
                         lines.append("... Output truncated (100 rows maximum) ...")
                     results_output.append("\n".join(lines))
@@ -59,7 +59,7 @@ def get_table_sample(table_name: str, limit: int = 3) -> str:
                 return f"Table '{table_name}' does not exist."
                 
             cursor = conn.cursor()
-            cursor.execute(f'SELECT * FROM {table_name} LIMIT {limit};')
+            cursor.execute(f'SELECT * FROM "{table_name}" LIMIT {limit};')
             rows = cursor.fetchall()
             
             if not rows:
@@ -67,7 +67,8 @@ def get_table_sample(table_name: str, limit: int = 3) -> str:
                 
             lines = [f"Sample Data for table '{table_name}' ({len(rows)} row(s)):"]
             for r in rows:
-                lines.append(str(dict(r)))
+                lines.append(str(format_row(dict(r))))
             return "\n".join(lines)
     except Exception as e:
         raise ToolException(f"Error fetching sample data for table '{table_name}': {e}")
+

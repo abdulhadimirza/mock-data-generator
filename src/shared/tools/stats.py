@@ -11,7 +11,7 @@ def get_table_row_count(table_name: str) -> str:
                 return f"Table '{table_name}' does not exist."
                 
             cursor = conn.cursor()
-            cursor.execute(f'SELECT COUNT(*) as count FROM {table_name};')
+            cursor.execute(f'SELECT COUNT(*) as count FROM "{table_name}";')
             count = cursor.fetchone()['count']
             return f"Table '{table_name}' total row count: {count}"
     except Exception as e:

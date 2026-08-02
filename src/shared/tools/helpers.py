@@ -26,3 +26,14 @@ def parse_sql_statements(query: str) -> list[str]:
     except Exception:
         pass
     return [stmt.strip() for stmt in query.split(';') if stmt.strip()]
+
+def format_row(row_dict: dict) -> dict:
+    """Format row dictionary safely, replacing raw binary bytes (BLOB) with length summaries."""
+    formatted = {}
+    for k, v in row_dict.items():
+        if isinstance(v, bytes):
+            formatted[k] = f"<BLOB {len(v)} bytes>"
+        else:
+            formatted[k] = v
+    return formatted
+

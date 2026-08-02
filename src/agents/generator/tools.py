@@ -36,11 +36,11 @@ def generate_mock_records(table_name: str, num_records: int = 5, custom_rules: O
             cursor = conn.cursor()
             
             # Get table schema
-            cursor.execute(f'PRAGMA table_info({table_name});')
+            cursor.execute(f'PRAGMA table_info("{table_name}");')
             columns_info = cursor.fetchall()
             
             # Get foreign key constraints
-            cursor.execute(f'PRAGMA foreign_key_list({table_name});')
+            cursor.execute(f'PRAGMA foreign_key_list("{table_name}");')
             fks_info = cursor.fetchall()
             
             # Foreign key lookup map: col_name -> list of available parent values
@@ -51,7 +51,7 @@ def generate_mock_records(table_name: str, num_records: int = 5, custom_rules: O
                 to_col = fk['to']
                 
                 # Fetch available values from parent table
-                cursor.execute(f'SELECT {to_col} FROM {parent_table} LIMIT 100;')
+                cursor.execute(f'SELECT "{to_col}" FROM "{parent_table}" LIMIT 100;')
                 parent_rows = cursor.fetchall()
                 parent_vals = [row[to_col] for row in parent_rows if row[to_col] is not None]
                 
@@ -148,9 +148,9 @@ def batch_insert_mock_data(table_name: str, records_json: str) -> str:
                 
             cursor = conn.cursor()
             cols = list(records[0].keys())
-            cols_str = ', '.join(cols)
+            cols_str = ', '.join(f'"{c}"' for c in cols)
             placeholders = ', '.join(['?'] * len(cols))
-            sql = f"INSERT INTO {table_name} ({cols_str}) VALUES ({placeholders});"
+            sql = f'INSERT INTO "{table_name}" ({cols_str}) VALUES ({placeholders});'
 
             rows_to_insert = [tuple(rec[col] for col in cols) for rec in records]
             

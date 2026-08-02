@@ -33,10 +33,10 @@ def create_subagent_node(
                 if tc['name'] == tool_name:
                     prompt = prompt_builder(tc['args'])
                     
-                    emit_lifecycle_event('subagent_start', tc['name'], tc['id'], input=tc['args'])
-
                     try:
-                        result = subgraph.invoke({'messages': [('user', prompt)]}, config)
+                        emit_lifecycle_event('subagent_start', tc['name'], tc['id'], input=tc['args'])
+                        sub_config = {**(config or {}), 'recursion_limit': 100}
+                        result = subgraph.invoke({'messages': [('user', prompt)]}, sub_config)
                         res_messages = result.get('messages', [])
                         
                         final_text = res_messages[-1].content if res_messages else default_completion_msg
