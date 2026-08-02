@@ -275,6 +275,8 @@ def call_mock_generator(query: str) -> str:
     """
     Delegate mock data generation to the Mock Data Generator subagent.
     Generates and inserts mock data into database tables and returns a summary of the execution.
+    Inspects schema automatically.
+    Can clear out existing data too.
     
     Args:
         query: Clear request or requirements regarding mock data generation.
