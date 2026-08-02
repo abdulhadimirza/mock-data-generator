@@ -46,8 +46,6 @@ def filter_tables_node(state: GeneratorState, config: RunnableConfig = None):
     messages = [SystemMessage(content=filter_prompt)] + list(state_messages)
     
     result = filter_llm.invoke(messages, config=config)
-
-    print(result)
     
     if hasattr(result, 'relevant_tables'):
         relevant_tables = result.relevant_tables
@@ -105,7 +103,7 @@ def code_generator_node(state: GeneratorState, config: RunnableConfig = None):
     prompt_messages = [SystemMessage(content=system_prompt)] + list(state_messages)
         
     response = code_gen_llm.invoke(prompt_messages, config=config)
-    print(response)
+    
     python_code = response.python_code
         
     return {
