@@ -29,7 +29,9 @@ SAFE_BUILTINS = {
     'KeyError': KeyError, 'AttributeError': AttributeError, 'IndexError': IndexError,
     'ZeroDivisionError': ZeroDivisionError, 'StopIteration': StopIteration,
     'AssertionError': AssertionError,
-    '__import__': safe_import
+    '__import__': safe_import,
+    'globals': globals,
+    'locals': locals
 }
 
 def run_in_sandbox(code: str, safe_builtins: dict = None):
