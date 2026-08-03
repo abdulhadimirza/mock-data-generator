@@ -45,14 +45,46 @@ def batch_insert(cursor, sql, data_rows):
     )
     cursor.executemany(sql, converted_rows)
 
+class MockSqlite3:
+    """Mock container providing only sqlite3 exception types without raw connection access."""
+    IntegrityError = sqlite3.IntegrityError
+    Error = sqlite3.Error
+    DatabaseError = sqlite3.DatabaseError
+    OperationalError = sqlite3.OperationalError
+    ProgrammingError = sqlite3.ProgrammingError
+    DataError = sqlite3.DataError
+    NotSupportedError = sqlite3.NotSupportedError
+    InternalError = sqlite3.InternalError
+
 def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+    root_module = name.split('.')[0]
+
+    # Intercept sqlite3 imports to safely return MockSqlite3 (providing exception classes without connect access)
+    if root_module == 'sqlite3':
+        return MockSqlite3
+
     forbidden_modules = {
+        # Process, System & Execution
         'os', 'sys', 'subprocess', 'shutil', 'socket', 'importlib', 
         'multiprocessing', 'threading', 'ctypes', 'winreg', 'pty', 'fcntl',
-        'builtins', 'gc', 'pdb', 'syslog', 'urllib', 'http'
+        'builtins', 'gc', 'pdb', 'syslog', 'urllib', 'http',
+        
+        # Filesystem Access
+        'pathlib', 'io', 'glob', 'fileinput', 'tempfile',
+        
+        # Introspection & Sandbox Escapes
+        'inspect', 'traceback', 'linecache',
+        
+        # Deserialization & Code Execution
+        'pickle', 'marshal', 'shelve', 'runpy', 'code', 'codeop', 'compileall',
+        
+        # Networking & RPC
+        'socketserver', 'asyncio', 'ftplib', 'smtplib', 'xmlrpc', 'requests', 'urllib3',
+        
+        # Database Direct Access & Logging
+        'dbm', 'logging'
     }
     
-    root_module = name.split('.')[0]
     if root_module in forbidden_modules:
         raise ImportError(f"Import of module '{name}' is forbidden in sandbox environment.")
         
@@ -111,7 +143,7 @@ def run_in_sandbox(code: str, safe_builtins: dict = None):
         safe_globals = {
             '__name__': '__main__',
             '__builtins__': safe_builtins,
-            'sqlite3': sqlite3,
+            'sqlite3': MockSqlite3,
             'random': random,
             'datetime': datetime,
             'uuid': uuid,
