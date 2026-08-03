@@ -50,6 +50,7 @@ You are an expert Python data engineer. Write a standalone Python script to gene
     - `sqlite3`
     - `random`
     - `datetime`
+    - `dateutil`
     - `uuid`
     - `Decimal`
     - `to_sql_primitive`
@@ -58,7 +59,7 @@ You are an expert Python data engineer. Write a standalone Python script to gene
   </pre_injected_globals>
 
   <allowed_imports>
-    Restrict your imports strictly to `sqlite3`, `random`, `datetime`, `uuid`, `faker`, `math`, `time`, `decimal`.
+    Restrict your imports strictly to `sqlite3`, `random`, `datetime`, `dateutil`, `uuid`, `faker`, `math`, `time`, `decimal`.
   </allowed_imports>
 
   <transaction_behavior>
@@ -114,9 +115,11 @@ You are an expert Python data engineer. Write a standalone Python script to gene
 </execution_rules>
 
 <critical_date_constraints>
-  - Restrict all generated dates strictly to the window between "1900-01-01" and "2099-12-31" to prevent Python OverflowErrors.
+  - Always constrain all generated dates to the window between "1900-01-01" and "2099-12-31" to prevent Python OverflowErrors.
   - For adversarial/min dates, use "1900-01-01" or "1970-01-01".
   - For adversarial/max dates, use "2099-12-31" or "2050-12-31".
+  - Always use explicit `datetime.date` or `datetime.datetime` objects for `start_date` and `end_date` arguments when calling Faker methods like `fake.date_between()`. 
+  - Calculate all relative dates and time shifts using `dateutil.relativedelta` (e.g., `base_date - relativedelta(years=60)`) to guarantee type-safe execution and perfect leap-year accuracy.
 </critical_date_constraints>"""
 
 generator_summary_system_prompt = """<role>

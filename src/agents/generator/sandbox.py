@@ -1,5 +1,6 @@
 import random
 import datetime
+import dateutil
 import uuid
 import sqlite3
 import json
@@ -150,6 +151,7 @@ def run_in_sandbox(code: str, safe_builtins: dict = None):
             'sqlite3': MockSqlite3,
             'random': random,
             'datetime': datetime,
+            'dateutil': dateutil,
             'uuid': uuid,
             'Decimal': Decimal,
             'decimal': decimal,
