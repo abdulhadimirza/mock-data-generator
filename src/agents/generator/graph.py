@@ -1,7 +1,3 @@
-import sys
-import io
-import multiprocessing
-import queue
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
@@ -23,7 +19,7 @@ from .prompts import (
     generator_summary_system_prompt,
 )
 from .state import GeneratorState, TableSelectionResponse, CodeGeneratorResponse
-from .sandbox import run_in_sandbox
+from .sandbox import run_in_isolated_sandbox
 
 def emit_progress(message: str):
     try:
@@ -112,17 +108,6 @@ def code_generator_node(state: GeneratorState, config: RunnableConfig = None):
         'messages': [AIMessage(content=f"Generated Data Insertion Script:\n```python\n{python_code}\n```")]
     }
 
-def _sandbox_worker(code, result_queue):
-    old_stdout = sys.stdout
-    sys.stdout = io.StringIO()
-    try:
-        res = run_in_sandbox(code)
-        result_queue.put(res)
-    except Exception as e:
-        result_queue.put((False, f"{type(e).__name__}: {str(e)}"))
-    finally:
-        sys.stdout = old_stdout
-
 # 5. Sandbox Execution Node
 def sandbox_execution_node(state: GeneratorState):
     emit_progress("Executing generated script in sandbox environment...")
@@ -134,63 +119,24 @@ def sandbox_execution_node(state: GeneratorState):
             'execution_error': "Empty generated code."
         }
 
-    result_queue = multiprocessing.Queue()
-    process = multiprocessing.Process(
-        target=_sandbox_worker,
-        args=(code, result_queue)
-    )
+    success, message = run_in_isolated_sandbox(code, timeout_seconds=15)
 
-    try:
-        process.start()
-        
-        try:
-            success, message = result_queue.get(timeout=15)
-        except queue.Empty:
-            if process.is_alive():
-                process.terminate()
-                error_msg = "TimeoutError: Execution timed out after 15 seconds limit."
-                emit_progress("Sandbox execution timed out.")
-            else:
-                error_msg = "Execution failed: No result returned from process."
-                emit_progress(f"Sandbox exception: {error_msg}")
-                
-            process.join()
-                
-            error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n<execution_error>\n{error_msg}\n</execution_error>\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
-            return {
-                'execution_result': f"Execution failed: {error_msg}",
-                'execution_error': error_msg,
-                'messages': [HumanMessage(content=error_feedback)]
-            }
-            
-        process.join()
-
-        if success:
-            emit_progress("Sandbox script execution succeeded!")
-            return {
-                'execution_result': message,
-                'execution_error': None
-            }
+    if success:
+        emit_progress("Sandbox script execution succeeded!")
+        return {
+            'execution_result': message,
+            'execution_error': None
+        }
+    else:
+        if "TimeoutError" in message:
+            emit_progress("Sandbox execution timed out.")
         else:
             emit_progress(f"Sandbox execution error: {message[:60]}...")
-            error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n<execution_error>\n{message}\n</execution_error>\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
-            return {
-                'execution_result': f"Execution failed: {message}",
-                'execution_error': message,
-                'messages': [HumanMessage(content=error_feedback)]
-            }
-    except Exception as e:
-        # Guarantee process cleanup if an outer exception triggers
-        if process.is_alive():
-            process.terminate()
-        process.join()
-
-        error_msg = f"{type(e).__name__}: {str(e)}"
-        emit_progress(f"Sandbox exception: {error_msg[:60]}...")
-        error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n<execution_error>\n{error_msg}\n</execution_error>\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
+            
+        error_feedback = f"[Sandbox Execution Feedback]\nThe previous script execution failed with error:\n<execution_error>\n{message}\n</execution_error>\nPlease analyze the error and the failed script, fix the bug, and return updated executable Python code."
         return {
-            'execution_result': f"Execution failed: {error_msg}",
-            'execution_error': error_msg,
+            'execution_result': f"Execution failed: {message}",
+            'execution_error': message,
             'messages': [HumanMessage(content=error_feedback)]
         }
 

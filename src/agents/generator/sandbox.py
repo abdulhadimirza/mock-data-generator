@@ -4,6 +4,10 @@ import uuid
 import sqlite3
 import json
 import decimal
+import sys
+import io
+import multiprocessing
+import queue
 from decimal import Decimal
 from enum import Enum
 from contextlib import contextmanager
@@ -164,3 +168,47 @@ def run_in_sandbox(code: str, safe_builtins: dict = None):
         except Exception as e:
             conn.rollback()
             return False, f"{type(e).__name__}: {str(e)}"
+
+def _sandbox_worker(code, result_queue):
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        res = run_in_sandbox(code)
+        result_queue.put(res)
+    except Exception as e:
+        result_queue.put((False, f"{type(e).__name__}: {str(e)}"))
+    finally:
+        sys.stdout = old_stdout
+
+def run_in_isolated_sandbox(code: str, timeout_seconds: int = 15) -> tuple[bool, str]:
+    if not code:
+        return False, "Empty generated code."
+
+    result_queue = multiprocessing.Queue()
+    process = multiprocessing.Process(
+        target=_sandbox_worker,
+        args=(code, result_queue)
+    )
+
+    try:
+        process.start()
+
+        try:
+            success, message = result_queue.get(timeout=timeout_seconds)
+        except queue.Empty:
+            if process.is_alive():
+                process.terminate()
+                error_msg = f"TimeoutError: Execution timed out after {timeout_seconds} seconds limit."
+            else:
+                error_msg = "Execution failed: No result returned from process."
+            process.join()
+            return False, error_msg
+
+        process.join()
+        return success, message
+    except Exception as e:
+        if process.is_alive():
+            process.terminate()
+        process.join()
+        return False, f"{type(e).__name__}: {str(e)}"
+
