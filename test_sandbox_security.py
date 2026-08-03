@@ -11,6 +11,9 @@ if hasattr(sys.stderr, "reconfigure"):
 # Ensure src directory is in sys.path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from database import get_db_connection, init_db
 from agents.generator import sandbox_execution_node
 
@@ -48,11 +51,16 @@ def test_infinite_while_loop_termination():
 
 def test_authorizer_schema_protection():
     print("\n--- Test 2: SQLite Authorizer (Schema & Data Protection) ---")
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS authorizer_test_table (id INT)")
+        conn.commit()
+
     state_drop = {
         'generated_code': """
 with get_db_connection() as conn:
     cursor = conn.cursor()
-    cursor.execute("DROP TABLE users")
+    cursor.execute("DROP TABLE authorizer_test_table")
 """
     }
     result_drop = sandbox_execution_node(state_drop)
@@ -64,35 +72,36 @@ with get_db_connection() as conn:
         'generated_code': """
 with get_db_connection() as conn:
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM users")
+    cursor.execute("DELETE FROM authorizer_test_table")
 """
     }
     result_delete = sandbox_execution_node(state_delete)
     print(f"DELETE Error: {result_delete.get('execution_error')}")
     assert result_delete.get('execution_error') is None, "Test 2 Failed: DELETE should be permitted."
 
+    # Clean up test table
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS authorizer_test_table")
+        conn.commit()
+
     print("[PASS] Test 2 Passed: Schema modification commands (DROP) were blocked by authorizer, while DELETE is permitted!")
 
 def test_transaction_rollback():
     print("\n--- Test 3: Transaction Atomic Rollback ---")
-    init_db()  # Ensure DB is in valid state
-    
-    test_email = "sandbox_test_user_rollback@example.com"
-    
-    # Verify test user does not exist initially
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) as count FROM users WHERE email = ?', (test_email,))
-        initial_count = cursor.fetchone()['count']
+        cursor.execute("CREATE TABLE IF NOT EXISTS rollback_test_table (id INTEGER PRIMARY KEY, email TEXT)")
+        cursor.execute("DELETE FROM rollback_test_table")
+        conn.commit()
     
-    assert initial_count == 0, "Test 3 Setup Issue: Test email already exists."
+    test_email = "sandbox_test_user_rollback@example.com"
 
-    # Code inserts a row and then throws an error before finishing
     state_failure = {
         'generated_code': f"""
 with get_db_connection() as conn:
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (name, email) VALUES ('Test User', '{test_email}')")
+    cursor.execute("INSERT INTO rollback_test_table (email) VALUES ('{test_email}')")
     raise ValueError("Simulated unexpected failure during insertion")
 """
     }
@@ -101,13 +110,14 @@ with get_db_connection() as conn:
     print(f"Execution Error: {result.get('execution_error')}")
     assert result.get('execution_error') is not None, "Test 3 Failed: Error was not raised."
 
-    # Verify that partial insert was rolled back completely
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT COUNT(*) as count FROM users WHERE email = ?', (test_email,))
+        cursor.execute('SELECT COUNT(*) as count FROM rollback_test_table WHERE email = ?', (test_email,))
         final_count = cursor.fetchone()['count']
+        cursor.execute("DROP TABLE IF EXISTS rollback_test_table")
+        conn.commit()
         
-    print(f"User count in DB after failure: {final_count}")
+    print(f"Record count in DB after failure: {final_count}")
     assert final_count == 0, "Test 3 Failed: Partial data was persisted despite execution failure!"
     print("[PASS] Test 3 Passed: Failed executions rolled back atomically!")
 
@@ -153,12 +163,47 @@ assert dt.year == 2026
     assert result.get('execution_error') is None, f"Test 6 Failed: strptime raised error: {result.get('execution_error')}"
     print("[PASS] Test 6 Passed: datetime.strptime and internal _strptime import allowed in sandbox!")
 
+def test_sqlite_adapter_helpers():
+    print("\n--- Test 7: SQLite Adapter Helpers (to_sql_primitive & batch_insert) ---")
+    state_adapter = {
+        'generated_code': """
+import uuid
+from datetime import datetime, date
+from decimal import Decimal
+
+u = uuid.uuid4()
+d = date(2026, 8, 3)
+dt = datetime(2026, 8, 3, 21, 0, 0)
+dec = Decimal("49.99")
+meta = {"key": "value"}
+items = [1, 2, 3]
+
+assert to_sql_primitive(u) == str(u)
+assert to_sql_primitive(d) == "2026-08-03"
+assert to_sql_primitive(dt) == "2026-08-03T21:00:00"
+assert to_sql_primitive(dec) == 49.99
+assert '"key"' in to_sql_primitive(meta)
+
+with get_db_connection() as conn:
+    cursor = conn.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS adapter_test (id TEXT, date_col TEXT, price REAL, data TEXT)")
+    rows = [(u, d, dec, meta)]
+    batch_insert(cursor, "INSERT INTO adapter_test VALUES (?, ?, ?, ?)", rows)
+    cursor.execute("DELETE FROM adapter_test")
+"""
+    }
+    result = sandbox_execution_node(state_adapter)
+    print(f"Adapter Helpers Result: {result.get('execution_result')}")
+    assert result.get('execution_error') is None, f"Test 7 Failed: SQLite adapter helpers test raised error: {result.get('execution_error')}"
+    print("[PASS] Test 7 Passed: to_sql_primitive and batch_insert executed successfully in sandbox!")
+
 if __name__ == '__main__':
     print("==========================================")
     print(" Running Sandbox Hardening Security Tests ")
     print("==========================================")
     
     try:
+        init_db()
         test_timeout()
         test_infinite_while_loop_termination()
         test_authorizer_schema_protection()
@@ -166,6 +211,7 @@ if __name__ == '__main__':
         test_restricted_imports()
         test_conn_attribute_protection()
         test_strptime_import()
+        test_sqlite_adapter_helpers()
         print("\n[SUCCESS] ALL SANDBOX SECURITY TESTS PASSED SUCCESSFULLY!")
     except AssertionError as e:
         print(f"\n[FAIL] SECURITY TEST FAILED: {e}")

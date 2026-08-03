@@ -25,18 +25,18 @@ Return your complete plan as formatted text."""
 code_generator_system_prompt = """You are an expert Python data engineer. Write a standalone Python script to generate and insert mock database data based on the provided plan & schema.
 
 ENVIRONMENT & GLOBALS:
-- Pre-injected Globals: `get_db_connection`, `fake` (Faker instance), `Faker`, `sqlite3`, `random`, `datetime`, `uuid`. Assume they are strictly present and use them directly without defensive globals checks.
+- Pre-injected Globals: `get_db_connection`, `fake` (Faker instance), `Faker`, `sqlite3`, `random`, `datetime`, `uuid`, `Decimal`, `to_sql_primitive`, `batch_insert`. Assume they are strictly present and use them directly without defensive globals checks.
 - Allowed Imports: Restrict your imports strictly to `sqlite3`, `random`, `datetime`, `uuid`, `faker`, `math`, `time`, `decimal`.
 - Transactions auto-commit on success and roll back on exceptions.
 - Determinism: You MUST seed the injected `fake` instance (e.g., `Faker.seed(<some_number>)` or `fake.seed_instance(<some_number>)`) alongside `random.seed(<some_number>)` to ensure strict reproducibility.
 
 EXECUTION RULES:
 * DB Access: Always use `with get_db_connection() as conn:` and `cursor = conn.cursor()`.
-* Batch Ingestion: Use `cursor.executemany("INSERT INTO ... VALUES (?, ...)", data)` with `?` placeholders for high throughput. Always use parameterized queries for variable insertion. When generating large datasets (>10,000 rows), use generators (`yield`) or chunk the data into batches to prevent Out-Of-Memory (OOM) crashes.
+* Batch Ingestion: Prefer using `batch_insert(cursor, "INSERT INTO ... VALUES (?, ...)", data)` for high throughput and automated SQLite type conversion. Alternatively, use `cursor.executemany(...)` with `to_sql_primitive` applied to values. Always use parameterized queries for variable insertion. When generating large datasets (>10,000 rows), use generators (`yield`) or chunk the data into batches to prevent Out-Of-Memory (OOM) crashes.
 * Procedural Data Generation: Generate all records dynamically using `while` or `for` loops combined with `fake`/`random` methods to ensure script stability and maximum variability.
 * Data Normalization & Binding:
   - Extract primitives when fetching FKs (e.g., `[row[0] for row in cursor.fetchall()]`). Ensure you pass only raw Python primitives to the database.
-  - Convert complex types (`UUID`, `datetime.date`, `Decimal`) to SQLite-compatible primitives (`str`, `int`, `float`) before binding.
+  - Convert complex types (`UUID`, `datetime.date`/`datetime`, `Decimal`, `dict`, `list`) to SQLite-compatible primitives (`str`, `int`, `float`) before binding. Use the pre-injected `batch_insert(cursor, sql, data)` or `to_sql_primitive(val)` helpers to guarantee safe parameter binding without SQLite interface errors.
 * Dependency Flow: Populate parent/lookup tables before child tables to satisfy Foreign Key constraints.
 * Error Recovery: Self-contained code only. If an execution error trace is provided, inspect the ENTIRE script for syntax/logic bugs and fix them all directly.
 

@@ -2,11 +2,48 @@ import random
 import datetime
 import uuid
 import sqlite3
+import json
+import decimal
+from decimal import Decimal
+from enum import Enum
 from contextlib import contextmanager
 from faker import Faker
 from database import get_db_connection
 
 import builtins
+
+def to_sql_primitive(val):
+    """Converts complex Python types to SQLite primitive values (str, int, float, bytes, None)."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float, str, bytes)):
+        return val
+    if isinstance(val, bool):
+        return int(val)
+    if isinstance(val, (datetime.datetime, datetime.date, datetime.time)):
+        return val.isoformat()
+    if isinstance(val, uuid.UUID):
+        return str(val)
+    if isinstance(val, Decimal):
+        return float(val)
+    if isinstance(val, Enum):
+        return to_sql_primitive(val.value)
+    if isinstance(val, tuple):
+        return tuple(to_sql_primitive(item) for item in val)
+    if isinstance(val, (dict, list, set)):
+        return json.dumps(val, default=str)
+    return str(val)
+
+def batch_insert(cursor, sql, data_rows):
+    """
+    Executes cursor.executemany on data_rows after converting all complex types in data_rows
+    to SQLite-compatible primitives using to_sql_primitive.
+    """
+    converted_rows = (
+        to_sql_primitive(row) if isinstance(row, (tuple, list)) else to_sql_primitive(row)
+        for row in data_rows
+    )
+    cursor.executemany(sql, converted_rows)
 
 def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
     forbidden_modules = {
@@ -78,9 +115,14 @@ def run_in_sandbox(code: str, safe_builtins: dict = None):
             'random': random,
             'datetime': datetime,
             'uuid': uuid,
+            'Decimal': Decimal,
+            'decimal': decimal,
+            'json': json,
             'Faker': Faker,
             'fake': Faker(),
-            'get_db_connection': safe_get_db_connection
+            'get_db_connection': safe_get_db_connection,
+            'to_sql_primitive': to_sql_primitive,
+            'batch_insert': batch_insert
         }
 
         try:
