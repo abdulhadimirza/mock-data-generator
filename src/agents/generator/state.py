@@ -1,8 +1,9 @@
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 from langgraph.graph import MessagesState
 
 class GeneratorState(MessagesState):
+    generation_mode: Optional[str]
     relevant_tables: List[str]
     schema_map: Optional[str]
     generated_plan: Optional[str]
@@ -10,6 +11,11 @@ class GeneratorState(MessagesState):
     execution_result: Optional[str]
     execution_error: Optional[str]
     retry_count: int
+
+class CodeGeneratorIntentResponse(BaseModel):
+    generation_mode: Literal["Stress Testing", "Realistic Analytics"] = Field(
+        description="The primary mode for mock data generation: 'Stress Testing' for edge-case/adversarial testing, or 'Realistic Analytics' for statistical BI and clean reporting."
+    )
 
 class TableSelectionResponse(BaseModel):
     relevant_tables: List[str] = Field(

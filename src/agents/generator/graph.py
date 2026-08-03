@@ -7,18 +7,20 @@ from langgraph.config import get_stream_writer
 from shared.tools import list_tables, get_tables_schema_with_deps
 from shared.llm import (
     get_llm,
+    deepseek_infer, gemini_infer,
     deepseek_filter, gemini_filter,
     deepseek_planner, gemini_planner,
     deepseek_code_gen, gemini_code_gen,
     deepseek_summary, gemini_summary,
 )
 from .prompts import (
+    generator_infer_system_prompt,
     generator_filter_system_prompt,
     generator_planner_system_prompt,
     code_generator_system_prompt,
     generator_summary_system_prompt,
 )
-from .state import GeneratorState, TableSelectionResponse, CodeGeneratorResponse
+from .state import GeneratorState, CodeGeneratorIntentResponse, TableSelectionResponse, CodeGeneratorResponse
 from .sandbox import run_in_isolated_sandbox
 
 def emit_progress(message: str):
@@ -31,6 +33,19 @@ def emit_progress(message: str):
         })
     except Exception:
         pass
+
+# 0. Intent Inference Node
+infer_llm = get_llm(primary=deepseek_infer, fallbacks=[gemini_infer], structured_output=CodeGeneratorIntentResponse)
+def infer_intent_node(state: GeneratorState, config: RunnableConfig = None):
+    emit_progress("Inferring generation mode intent...")
+    state_messages = state.get('messages', [])
+    messages = [SystemMessage(content=generator_infer_system_prompt)] + list(state_messages)
+    
+    result = infer_llm.invoke(messages, config=config)
+    generation_mode = result.generation_mode
+    
+    emit_progress(f"Inferred generation mode: {generation_mode}")
+    return {'generation_mode': generation_mode}
 
 # 1. Stateless Filter Node
 filter_llm = get_llm(primary=deepseek_filter, fallbacks=[gemini_filter], structured_output=TableSelectionResponse)
@@ -69,8 +84,9 @@ def generator_planner_node(state: GeneratorState, config: RunnableConfig = None)
     state_messages = state.get('messages', [])
     relevant_tables = state.get('relevant_tables', [])
     schema_map = state.get('schema_map', '')
+    mode = state.get('generation_mode', 'Stress Testing')
     
-    system_prompt = generator_planner_system_prompt
+    system_prompt = generator_planner_system_prompt.format(MODE=mode)
     if relevant_tables:
         system_prompt += f"\n\nRelevant tables identified for this request:\n<relevant_tables>\n{', '.join(relevant_tables)}\n</relevant_tables>"
     if schema_map:
@@ -188,6 +204,7 @@ def route_execution_result(state: GeneratorState):
 
 generator_workflow = StateGraph(GeneratorState)
 
+generator_workflow.add_node('infer_intent', infer_intent_node)
 generator_workflow.add_node('filter_tables', filter_tables_node)
 generator_workflow.add_node('fetch_schema', fetch_schema_node)
 generator_workflow.add_node('planner', generator_planner_node)
@@ -195,7 +212,8 @@ generator_workflow.add_node('code_generator', code_generator_node)
 generator_workflow.add_node('sandbox_execution', sandbox_execution_node)
 generator_workflow.add_node('summary', summary_node)
 
-generator_workflow.add_edge(START, 'filter_tables')
+generator_workflow.add_edge(START, 'infer_intent')
+generator_workflow.add_edge('infer_intent', 'filter_tables')
 generator_workflow.add_edge('filter_tables', 'fetch_schema')
 generator_workflow.add_edge('fetch_schema', 'planner')
 generator_workflow.add_edge('planner', 'code_generator')

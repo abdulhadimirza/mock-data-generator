@@ -58,6 +58,9 @@ deepseek_lowest_thinking: ChatDeepSeek = create_deepseek_llm(reasoning_effort='d
 gemini_lowest_thinking: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
 
 # Generator Subagent Node Configs
+deepseek_infer: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=0.0)
+gemini_infer: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
+
 deepseek_filter: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=1.0)
 gemini_filter: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
 
