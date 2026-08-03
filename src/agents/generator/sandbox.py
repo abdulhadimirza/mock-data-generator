@@ -171,10 +171,15 @@ def run_in_sandbox(code: str, safe_builtins: dict = None):
 
 def _sandbox_worker(code, result_queue):
     old_stdout = sys.stdout
-    sys.stdout = io.StringIO()
+    captured_stdout = io.StringIO()
+    sys.stdout = captured_stdout
     try:
-        res = run_in_sandbox(code)
-        result_queue.put(res)
+        success, message = run_in_sandbox(code)
+        if success:
+            output = captured_stdout.getvalue()
+            if output:
+                message = f"{message}\n\n<console_output>\n{output}</console_output>"
+        result_queue.put((success, message))
     except Exception as e:
         result_queue.put((False, f"{type(e).__name__}: {str(e)}"))
     finally:
