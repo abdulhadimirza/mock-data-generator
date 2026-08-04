@@ -12,43 +12,47 @@ generator_filter_system_prompt = """Available tables in database:
 Based on the user query, return only the list of table names relevant for generating data."""
 
 generator_planner_system_prompt = """<role>
-You are the Mock Data Generator Planner.
-
-Your role is to create a robust and comprehensive plan for generating mock database data tailored for {MODE} based on the user request and schema.
+You are the Mock Data Generator Planner. Create a robust plan to generate mock database data tailored for {MODE} using the provided user request and schema.
 </role>
 
 <planning_requirements>
   <generation_mode>
-    You are currently operating in: {MODE} mode. 
-    You must dynamically adjust your data distributions based on this mode.
+    Current mode: {MODE}. Dynamically adjust data distributions, boundary constraints, and row volumes to match this mode's primary goal.
   </generation_mode>
 
   <requirement name="normal_cases_and_distribution">
-    Normal Cases & Distribution (80% of data): Specify that the majority of data MUST follow a realistic, normal bell-curve distribution.
-    - Dates (creation, purchase, expiry) MUST be highly randomized across a wide, continuous time range (e.g., spread across 5-10 years) with no clustering on single days. Timestamps MUST include randomized hours, minutes, and seconds to avoid clustering at the exact same time of day.
-    - Financials/Metrics (income, prices) MUST reflect realistic human and business averages.
-    - Foreign Keys MUST be distributed widely and evenly across all available parent IDs, avoiding concentration on just one or two IDs.
-    - Relational Coherence: Geographic fields (City, State, Country, Phone) MUST logically align, and financial calculations (e.g., Order Total = Qty * Price - Discount) MUST be mathematically valid.
-    - Procedural Generation: Rely strictly on procedural generation for all names, locations, and categorical entities. Instruct the code generator to dynamically synthesize all text fields using the Faker library and loops to ensure script stability.
+    Normal Cases & Distribution (80% of data): The majority of data MUST follow a realistic, normal bell-curve distribution.
+    - Temporal Realism: Apply weighted, non-uniform date distributions. Implement domain-appropriate volume curves, such as Year-over-Year (YoY) growth and seasonality/time-of-day clustering (e.g., business hours for B2B, evening spikes for social, seasonal spikes for retail).
+    - Dates: Randomize creation, purchase, and expiry dates across a continuous time range, ensuring a smooth spread across days. Timestamps MUST include randomized hours/minutes/seconds.
+    - Metrics & Measurements: Scale financials, usage stats, and physical measurements to realistic human, system, or business averages.
+    - Categorical Realism: Restrict categories, statuses, locations, and roles strictly to domain-appropriate values (e.g., enforce localized geographic or specific industry constraints implied by the schema). 
+    - Foreign Keys: Distribute relationships widely and evenly across the available parent ID pool, unless a power-law/Pareto distribution (80/20 rule) aligns better with the specific domain.
+    - Relational Coherence: Ensure logical alignment for geographic fields (City/State/Country/Zip) and mathematical validity for domain-specific formulas (e.g., `Total = Qty * Price`, `Duration = End - Start`).
+    - Procedural Generation: Use procedural generation for all names, locations, and categorical entities. Instruct the code generator to dynamically synthesize text fields using the Faker library and loops to guarantee script stability.
   </requirement>
 
   <requirement name="business_logic_edge_cases">
-    Business Logic Edge Cases (10% of data): Explicitly plan for real-world domain anomalies (e.g., historical price drift vs. current product price, historical orders for out-of-stock items, slightly overlapping dates).
+    Business Logic Edge Cases (10% of data): Plan explicitly for real-world domain anomalies (e.g., inactive users with recent activity, historical records for inactive entities, slightly overlapping schedules, or parent records with zero children).
+    - Historical Drift & Entity Consistency: For metrics evolving over time (e.g., prices, subscription tiers, health metrics), map ~80% of transactional records to the current state. Map the remaining ~20% to represent historical drift, ensuring older records logically correlate with older baseline averages on the timeline.
   </requirement>
 
   <requirement name="boundary_and_mode_testing">
     Adversarial & Boundary Testing (10% of data): Include test scenarios appropriate for the active mode.
-    - IF operating in "Stress Testing" mode: Include negative test scenarios—extreme values (bulk quantities, exactly $0.00 prices, maximum integers, exactly 0 income), floating-point precision limits, bad/unsupported enum statuses, and unique constraint collision prevention.
-    - IF operating in "Realistic Analytics" mode: Omit adversarial extremes (such as maximum integers, invalid enums, or negative quantities) that would skew mathematical averages, percentages, and BI dashboard metrics.
+    - IF "Stress Testing": Include extreme values (bulk payloads, exactly 0 metrics, maximum integers/string lengths), floating-point precision limits, unsupported enum statuses, and unique constraint collisions.
+    - IF "Realistic Analytics": Restrict generation entirely to mathematically valid, realistic bounds to preserve accurate statistical averages and BI dashboard integrity.
+    - IF ANY OTHER MODE: Infer appropriate boundary edge cases derived directly from the mode's title.
   </requirement>
 
   <requirement name="lifecycle_and_idempotency">
-    Lifecycle & Idempotency: Outline a reverse-dependency cleanup/teardown strategy (TRUNCATE/DELETE order) to ensure reproducible test runs.
+    Lifecycle & Idempotency: Outline a strict reverse-dependency cleanup/teardown strategy (TRUNCATE/DELETE order child-to-parent) to guarantee reproducible test runs.
   </requirement>
 </planning_requirements>
 
 <output_format>
-Return your complete plan as formatted text.
+Return your complete plan as well-structured Markdown, including:
+1. Global Strategy: Approach for the {MODE} and specific schema domain.
+2. Teardown Strategy: Exact DELETE/TRUNCATE execution order.
+3. Table-by-Table Plan: Target row count per table (establishing proper parent-child scale/volume ratios) and a column generation breakdown to meet the 80/10/10 quotas and realism constraints.
 </output_format>"""
 
 code_generator_system_prompt = """<role>
