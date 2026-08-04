@@ -1,8 +1,53 @@
 import json
+from collections import deque, defaultdict
 from typing import List, Dict, Any, Optional
 from langchain_core.tools import tool, ToolException
 from database import get_readonly_connection
 from .helpers import verify_table_exists
+
+def get_topological_table_order(schema_map: dict) -> List[str]:
+    """
+    Computes a topological sort (parent before child) for database table schemas.
+    Uses Kahn's Algorithm on Foreign Key dependencies.
+    """
+    if not schema_map:
+        return []
+
+    tables = list(schema_map.keys())
+    adj_list = defaultdict(list)
+    in_degree = {tbl: 0 for tbl in tables}
+
+    for table_name, schema_info in schema_map.items():
+        foreign_keys = schema_info.get('foreign_keys', [])
+        parents = set()
+        for fk in foreign_keys:
+            parent_tbl = fk.get('table')
+            if parent_tbl and parent_tbl in schema_map and parent_tbl != table_name:
+                parents.add(parent_tbl)
+
+        for parent_tbl in parents:
+            adj_list[parent_tbl].append(table_name)
+            in_degree[table_name] += 1
+
+    queue = deque([tbl for tbl in tables if in_degree[tbl] == 0])
+    order = []
+
+    while queue:
+        current = queue.popleft()
+        order.append(current)
+
+        for neighbor in adj_list[current]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+
+    if len(order) < len(tables):
+        for tbl in tables:
+            if tbl not in order:
+                order.append(tbl)
+
+    return order
+
 
 def _get_table_schema_dict(cursor, table_name: str, create_sql: Optional[str] = None) -> Dict[str, Any]:
     """Helper function to extract complete schema dictionary for a single table."""

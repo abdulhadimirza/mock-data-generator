@@ -1,10 +1,11 @@
+import json
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END
 from langgraph.config import get_stream_writer
 
-from shared.tools import list_tables, get_tables_schema_with_deps
+from shared.tools import list_tables, get_tables_schema_with_deps, get_topological_table_order
 from shared.llm import (
     get_llm,
     deepseek_infer, gemini_infer,
@@ -71,11 +72,23 @@ def filter_tables_node(state: GeneratorState, config: RunnableConfig = None):
 def fetch_schema_node(state: GeneratorState):
     relevant_tables = state.get('relevant_tables', [])
     if not relevant_tables:
-        return {'schema_map': ''}
+        return {'schema_map': '', 'insertion_order': []}
     
     emit_progress(f"Fetching schema for target tables: {', '.join(relevant_tables)}...")
     schema_map = get_tables_schema_with_deps.invoke({'table_names': relevant_tables})
-    return {'schema_map': schema_map}
+    
+    try:
+        schema_map_dict = json.loads(schema_map)
+        insertion_order = get_topological_table_order(schema_map_dict)
+        if insertion_order:
+            emit_progress(f"Calculated FK topological insertion order: {' -> '.join(insertion_order)}")
+    except Exception:
+        insertion_order = []
+
+    return {
+        'schema_map': schema_map,
+        'insertion_order': insertion_order
+    }
 
 # 3. Mock Data Generator Planner Node
 planner_llm = get_llm(primary=deepseek_planner, fallbacks=[gemini_planner])
@@ -105,8 +118,11 @@ def code_generator_node(state: GeneratorState, config: RunnableConfig = None):
     state_messages = state.get('messages', [])
     schema_map = state.get('schema_map', '')
     generated_plan = state.get('generated_plan', '')
+    insertion_order = state.get('insertion_order', [])
     
     system_prompt = code_generator_system_prompt
+    if insertion_order:
+        system_prompt += f"\n\nStrict Table Insertion Order (Parent -> Child):\n<strict_insertion_order>\n{' -> '.join(insertion_order)}\n</strict_insertion_order>"
     if schema_map:
         system_prompt += f"\n\nTarget Database Schema:\n<target_database_schema>\n{schema_map}\n</target_database_schema>"
     if generated_plan:
@@ -123,6 +139,7 @@ def code_generator_node(state: GeneratorState, config: RunnableConfig = None):
         'retry_count': current_retries + 1,
         'messages': [AIMessage(content=f"Generated Data Insertion Script:\n```python\n{python_code}\n```")]
     }
+
 
 # 5. Sandbox Execution Node
 def sandbox_execution_node(state: GeneratorState):

@@ -152,7 +152,9 @@ You are an expert Python data engineer. Write a standalone Python script to gene
 
   <rule name="dependency_flow">
     - Populate parent/lookup tables before child tables to satisfy Foreign Key constraints.
+    - ALWAYS strictly adhere to the exact table sequence specified in <strict_insertion_order>.
   </rule>
+
 
   <rule name="error_recovery">
     - Self-contained code only. If an execution error trace is provided, inspect the ENTIRE script for syntax/logic bugs and fix them all directly.

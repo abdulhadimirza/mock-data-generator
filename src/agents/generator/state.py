@@ -6,11 +6,13 @@ class GeneratorState(MessagesState):
     generation_mode: Optional[str]
     relevant_tables: List[str]
     schema_map: Optional[str]
+    insertion_order: Optional[List[str]]
     generated_plan: Optional[str]
     generated_code: Optional[str]
     execution_result: Optional[str]
     execution_error: Optional[str]
     retry_count: int
+
 
 class CodeGeneratorIntentResponse(BaseModel):
     generation_mode: Literal["Stress Testing", "Realistic Analytics"] = Field(
