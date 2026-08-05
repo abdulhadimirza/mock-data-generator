@@ -1,6 +1,5 @@
-BASE_PLANNER_REQUIREMENTS = """<planning_requirements>
-  <requirement name="normal_cases_and_distribution">
-    Normal Cases & Distribution (80% of data): The majority of data MUST follow a realistic, normal bell-curve distribution.
+BASE_PLANNER_REQUIREMENTS = """  <requirement name="normal_cases_and_distribution">
+    Normal Cases & Distribution ({normal_pct}% of data): The majority of data MUST follow a realistic, normal bell-curve distribution.
     - Temporal Realism: Apply weighted, non-uniform date distributions. Implement domain-appropriate volume curves, such as Year-over-Year (YoY) growth and seasonality/time-of-day clustering (e.g., business hours for B2B, evening spikes for social, seasonal spikes for retail).
     - Dates: Randomize creation, purchase, and expiry dates across a continuous time range, ensuring a smooth spread across days. Timestamps MUST include randomized hours/minutes/seconds.
     - Metrics & Measurements: Scale financials, usage stats, and physical measurements to realistic human, system, or business averages.
@@ -25,7 +24,7 @@ You are the Mock Data Generator Planner. Create a robust plan to generate mock d
     Current mode: Realistic Analytics. Restrict generation entirely to mathematically valid, realistic bounds to preserve accurate statistical averages and BI dashboard integrity.
   </generation_mode>
 
-""" + BASE_PLANNER_REQUIREMENTS + """
+""" + BASE_PLANNER_REQUIREMENTS.replace("{normal_pct}", "90") + """
   <requirement name="boundary_and_mode_testing">
     Boundary Constraints: Restrict generation entirely to mathematically valid, realistic bounds. Exclude extreme numerical anomalies, maximum integer overflows, negative quantities, or corrupted string lengths to preserve accurate BI reporting.
   </requirement>
@@ -39,7 +38,7 @@ You are the Mock Data Generator Planner. Create a robust plan to generate mock d
 Return your complete plan as well-structured Markdown, including:
 1. Global Strategy: Approach for Realistic Analytics and specific schema domain.
 2. Teardown Strategy: Exact DELETE/TRUNCATE execution order.
-3. Table-by-Table Plan: Target row count per table (establishing proper parent-child scale/volume ratios) and a column generation breakdown to meet the 80/10/10 quotas and realism constraints.
+3. Table-by-Table Plan: Target row count per table (establishing proper parent-child scale/volume ratios) and a column generation breakdown to meet the 90/10 quotas and realism constraints.
 </output_format>"""
 
 stress_planner_system_prompt = """<role>
@@ -51,7 +50,7 @@ You are the Mock Data Generator Planner. Create a robust plan to generate mock d
     Current mode: Stress Testing. Incorporate adversarial values, boundary testing, extreme numerical payloads, and edge cases to rigorously pressure-test database stability.
   </generation_mode>
 
-""" + BASE_PLANNER_REQUIREMENTS + """
+""" + BASE_PLANNER_REQUIREMENTS.replace("{normal_pct}", "80") + """
   <requirement name="boundary_and_mode_testing">
     Adversarial & Boundary Testing (10% of data): Include extreme values (bulk payloads, exactly 0 metrics, maximum integers/string lengths), floating-point precision limits, unsupported enum statuses, and unique constraint collisions.
   </requirement>
