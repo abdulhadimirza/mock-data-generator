@@ -17,7 +17,8 @@ from shared.llm import (
 from .prompts import (
     generator_infer_system_prompt,
     generator_filter_system_prompt,
-    generator_planner_system_prompt,
+    realistic_planner_system_prompt,
+    stress_planner_system_prompt,
     code_generator_system_prompt,
     generator_summary_system_prompt,
 )
@@ -90,27 +91,42 @@ def fetch_schema_node(state: GeneratorState):
         'insertion_order': insertion_order
     }
 
-# 3. Mock Data Generator Planner Node
+# 3. Planner Nodes
 planner_llm = get_llm(primary=deepseek_planner, fallbacks=[gemini_planner])
-def generator_planner_node(state: GeneratorState, config: RunnableConfig = None):
-    emit_progress("Planning mock data generation strategy...")
+
+def realistic_planner_node(state: GeneratorState, config: RunnableConfig = None):
+    emit_progress("Planning realistic analytics mock data strategy...")
     state_messages = state.get('messages', [])
     relevant_tables = state.get('relevant_tables', [])
     schema_map = state.get('schema_map', '')
-    mode = state.get('generation_mode', 'Stress Testing')
     
-    system_prompt = generator_planner_system_prompt.format(MODE=mode)
+    system_prompt = realistic_planner_system_prompt
     if relevant_tables:
         system_prompt += f"\n\nRelevant tables identified for this request:\n<relevant_tables>\n{', '.join(relevant_tables)}\n</relevant_tables>"
     if schema_map:
         system_prompt += f"\n\nSchema map of relevant tables:\n<schema_map>\n{schema_map}\n</schema_map>"
         
     messages = [SystemMessage(content=system_prompt)] + list(state_messages)
-
     response = planner_llm.invoke(messages, config=config)
     return {'generated_plan': response.content}
 
-# 4. Code Generator Node
+def stress_planner_node(state: GeneratorState, config: RunnableConfig = None):
+    emit_progress("Planning stress testing mock data strategy...")
+    state_messages = state.get('messages', [])
+    relevant_tables = state.get('relevant_tables', [])
+    schema_map = state.get('schema_map', '')
+    
+    system_prompt = stress_planner_system_prompt
+    if relevant_tables:
+        system_prompt += f"\n\nRelevant tables identified for this request:\n<relevant_tables>\n{', '.join(relevant_tables)}\n</relevant_tables>"
+    if schema_map:
+        system_prompt += f"\n\nSchema map of relevant tables:\n<schema_map>\n{schema_map}\n</schema_map>"
+        
+    messages = [SystemMessage(content=system_prompt)] + list(state_messages)
+    response = planner_llm.invoke(messages, config=config)
+    return {'generated_plan': response.content}
+
+# 4. Code Generator Node (Shared across subgraphs)
 code_gen_llm = get_llm(primary=deepseek_code_gen, fallbacks=[gemini_code_gen], structured_output=CodeGeneratorResponse)
 def code_generator_node(state: GeneratorState, config: RunnableConfig = None):
     current_retries = state.get('retry_count', 0)
@@ -131,7 +147,6 @@ def code_generator_node(state: GeneratorState, config: RunnableConfig = None):
     prompt_messages = [SystemMessage(content=system_prompt)] + list(state_messages)
         
     response = code_gen_llm.invoke(prompt_messages, config=config)
-    
     python_code = response.python_code
         
     return {
@@ -140,8 +155,7 @@ def code_generator_node(state: GeneratorState, config: RunnableConfig = None):
         'messages': [AIMessage(content=f"Generated Data Insertion Script:\n```python\n{python_code}\n```")]
     }
 
-
-# 5. Sandbox Execution Node
+# 5. Sandbox Execution Node (Shared across subgraphs)
 def sandbox_execution_node(state: GeneratorState):
     emit_progress("Executing generated script in sandbox environment...")
     code = state.get('generated_code', '')
@@ -208,45 +222,78 @@ def summary_node(state: GeneratorState, config: RunnableConfig = None):
     response = summary_llm.invoke(messages, config=config)
     return {'messages': [response]}
 
-# 7. Conditional Edge Router for Error Refinement
-def route_execution_result(state: GeneratorState):
+# 7. Subgraph Retry Router
+def subgraph_route_execution(state: GeneratorState):
     execution_error = state.get('execution_error', None)
     retry_count = state.get('retry_count', 0)
     
     if execution_error and retry_count < 3:
         emit_progress(f"Execution error detected. Routing back to code generation ({retry_count}/3)...")
         return 'code_generator'
-    emit_progress("Routing to summary node...")
-    return 'summary'
+    return END
+
+# 8. Subgraph Builder Helper
+def _build_generator_subgraph(planner_node, name: str):
+    builder = StateGraph(GeneratorState)
+    builder.add_node('planner', planner_node)
+    builder.add_node('code_generator', code_generator_node)
+    builder.add_node('sandbox_execution', sandbox_execution_node)
+    
+    builder.add_edge(START, 'planner')
+    builder.add_edge('planner', 'code_generator')
+    builder.add_edge('code_generator', 'sandbox_execution')
+    
+    builder.add_conditional_edges(
+        'sandbox_execution',
+        subgraph_route_execution,
+        {
+            'code_generator': 'code_generator',
+            END: END
+        }
+    )
+    return builder.compile(name=name)
+
+realistic_subgraph = _build_generator_subgraph(realistic_planner_node, "realistic_subgraph")
+stress_subgraph = _build_generator_subgraph(stress_planner_node, "stress_subgraph")
+
+# 9. Main Workflow Assembly
+def route_mode(state: GeneratorState):
+    mode = state.get('generation_mode', 'Stress Testing')
+    if mode == 'Realistic Analytics':
+        emit_progress("Routing execution to Realistic Analytics subgraph branch...")
+        return 'realistic_branch'
+    emit_progress("Routing execution to Stress Testing subgraph branch...")
+    return 'stress_branch'
 
 generator_workflow = StateGraph(GeneratorState)
 
 generator_workflow.add_node('infer_intent', infer_intent_node)
 generator_workflow.add_node('filter_tables', filter_tables_node)
 generator_workflow.add_node('fetch_schema', fetch_schema_node)
-generator_workflow.add_node('planner', generator_planner_node)
-generator_workflow.add_node('code_generator', code_generator_node)
-generator_workflow.add_node('sandbox_execution', sandbox_execution_node)
+
+generator_workflow.add_node('realistic_branch', realistic_subgraph)
+generator_workflow.add_node('stress_branch', stress_subgraph)
 generator_workflow.add_node('summary', summary_node)
 
 generator_workflow.add_edge(START, 'infer_intent')
 generator_workflow.add_edge('infer_intent', 'filter_tables')
 generator_workflow.add_edge('filter_tables', 'fetch_schema')
-generator_workflow.add_edge('fetch_schema', 'planner')
-generator_workflow.add_edge('planner', 'code_generator')
-generator_workflow.add_edge('code_generator', 'sandbox_execution')
 
 generator_workflow.add_conditional_edges(
-    'sandbox_execution',
-    route_execution_result,
+    'fetch_schema',
+    route_mode,
     {
-        'code_generator': 'code_generator',
-        'summary': 'summary'
+        'realistic_branch': 'realistic_branch',
+        'stress_branch': 'stress_branch'
     }
 )
+
+generator_workflow.add_edge('realistic_branch', 'summary')
+generator_workflow.add_edge('stress_branch', 'summary')
 generator_workflow.add_edge('summary', END)
 
 mock_generator_graph = generator_workflow.compile(name="generator_subagent_graph")
+
 
 # Subagent Tool Definition
 @tool

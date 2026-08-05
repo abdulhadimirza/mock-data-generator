@@ -11,15 +11,7 @@ generator_filter_system_prompt = """Available tables in database:
 
 Based on the user query, return only the list of table names relevant for generating data."""
 
-generator_planner_system_prompt = """<role>
-You are the Mock Data Generator Planner. Create a robust plan to generate mock database data tailored for {MODE} using the provided user request and schema.
-</role>
-
-<planning_requirements>
-  <generation_mode>
-    Current mode: {MODE}. Dynamically adjust data distributions, boundary constraints, and row volumes to match this mode's primary goal.
-  </generation_mode>
-
+BASE_PLANNER_REQUIREMENTS = """<planning_requirements>
   <requirement name="normal_cases_and_distribution">
     Normal Cases & Distribution (80% of data): The majority of data MUST follow a realistic, normal bell-curve distribution.
     - Temporal Realism: Apply weighted, non-uniform date distributions. Implement domain-appropriate volume curves, such as Year-over-Year (YoY) growth and seasonality/time-of-day clustering (e.g., business hours for B2B, evening spikes for social, seasonal spikes for retail).
@@ -35,12 +27,20 @@ You are the Mock Data Generator Planner. Create a robust plan to generate mock d
     Business Logic Edge Cases (10% of data): Plan explicitly for real-world domain anomalies (e.g., inactive users with recent activity, historical records for inactive entities, slightly overlapping schedules, or parent records with zero children).
     - Historical Drift & Entity Consistency: For metrics evolving over time (e.g., prices, subscription tiers, health metrics), map ~80% of transactional records to the current state. Map the remaining ~20% to represent historical drift, ensuring older records logically correlate with older baseline averages on the timeline.
   </requirement>
+"""
 
+realistic_planner_system_prompt = """<role>
+You are the Mock Data Generator Planner. Create a robust plan to generate mock database data tailored for Realistic Analytics using the provided user request and schema.
+</role>
+
+<planning_requirements>
+  <generation_mode>
+    Current mode: Realistic Analytics. Restrict generation entirely to mathematically valid, realistic bounds to preserve accurate statistical averages and BI dashboard integrity.
+  </generation_mode>
+
+""" + BASE_PLANNER_REQUIREMENTS + """
   <requirement name="boundary_and_mode_testing">
-    Adversarial & Boundary Testing (10% of data): Include test scenarios appropriate for the active mode.
-    - IF "Stress Testing": Include extreme values (bulk payloads, exactly 0 metrics, maximum integers/string lengths), floating-point precision limits, unsupported enum statuses, and unique constraint collisions.
-    - IF "Realistic Analytics": Restrict generation entirely to mathematically valid, realistic bounds to preserve accurate statistical averages and BI dashboard integrity.
-    - IF ANY OTHER MODE: Infer appropriate boundary edge cases derived directly from the mode's title.
+    Boundary Constraints: Restrict generation entirely to mathematically valid, realistic bounds. Exclude extreme numerical anomalies, maximum integer overflows, negative quantities, or corrupted string lengths to preserve accurate BI reporting.
   </requirement>
 
   <requirement name="lifecycle_and_idempotency">
@@ -50,10 +50,40 @@ You are the Mock Data Generator Planner. Create a robust plan to generate mock d
 
 <output_format>
 Return your complete plan as well-structured Markdown, including:
-1. Global Strategy: Approach for the {MODE} and specific schema domain.
+1. Global Strategy: Approach for Realistic Analytics and specific schema domain.
 2. Teardown Strategy: Exact DELETE/TRUNCATE execution order.
 3. Table-by-Table Plan: Target row count per table (establishing proper parent-child scale/volume ratios) and a column generation breakdown to meet the 80/10/10 quotas and realism constraints.
 </output_format>"""
+
+stress_planner_system_prompt = """<role>
+You are the Mock Data Generator Planner. Create a robust plan to generate mock database data tailored for Stress Testing using the provided user request and schema.
+</role>
+
+<planning_requirements>
+  <generation_mode>
+    Current mode: Stress Testing. Incorporate adversarial values, boundary testing, extreme numerical payloads, and edge cases to rigorously pressure-test database stability.
+  </generation_mode>
+
+""" + BASE_PLANNER_REQUIREMENTS + """
+  <requirement name="boundary_and_mode_testing">
+    Adversarial & Boundary Testing (10% of data): Include extreme values (bulk payloads, exactly 0 metrics, maximum integers/string lengths), floating-point precision limits, unsupported enum statuses, and unique constraint collisions.
+  </requirement>
+
+  <requirement name="lifecycle_and_idempotency">
+    Lifecycle & Idempotency: Outline a strict reverse-dependency cleanup/teardown strategy (TRUNCATE/DELETE order child-to-parent) to guarantee reproducible test runs.
+  </requirement>
+</planning_requirements>
+
+<output_format>
+Return your complete plan as well-structured Markdown, including:
+1. Global Strategy: Approach for Stress Testing and specific schema domain.
+2. Teardown Strategy: Exact DELETE/TRUNCATE execution order.
+3. Table-by-Table Plan: Target row count per table (establishing proper parent-child scale/volume ratios) and a column generation breakdown to meet the 80/10/10 quotas and realism constraints.
+</output_format>"""
+
+# Backwards compatibility alias
+generator_planner_system_prompt = stress_planner_system_prompt
+
 
 code_generator_system_prompt = """<role>
 You are an expert Python data engineer. Write a standalone Python script to generate and insert mock database data based on the provided plan & schema.
