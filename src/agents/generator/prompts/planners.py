@@ -67,5 +67,4 @@ Return your complete plan as well-structured Markdown, including:
 3. Table-by-Table Plan: Target row count per table (establishing proper parent-child scale/volume ratios) and a column generation breakdown to meet the 80/10/10 quotas and realism constraints.
 </output_format>"""
 
-# Backwards compatibility alias
-generator_planner_system_prompt = stress_planner_system_prompt
+
