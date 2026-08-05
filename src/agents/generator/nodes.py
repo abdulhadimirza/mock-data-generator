@@ -4,7 +4,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END
 from langgraph.config import get_stream_writer
 
-from shared.tools import list_tables, get_tables_schema_with_deps, get_topological_table_order
+from shared.tools import list_tables, get_table_metadata_with_deps, format_metadata_to_sql_json, get_topological_table_order
 from shared.llm import (
     get_llm,
     deepseek_infer, gemini_infer,
@@ -58,13 +58,8 @@ def filter_tables_node(state: GeneratorState, config: RunnableConfig = None):
     messages = [SystemMessage(content=filter_prompt)] + list(state_messages)
     
     result = filter_llm.invoke(messages, config=config)
-    
-    if hasattr(result, 'relevant_tables'):
-        relevant_tables = result.relevant_tables
-    elif isinstance(result, dict):
-        relevant_tables = result.get('relevant_tables', [])
-    else:
-        relevant_tables = []
+
+    relevant_tables = result.relevant_tables
     
     return {'relevant_tables': relevant_tables}
 
@@ -76,18 +71,19 @@ def fetch_schema_node(state: GeneratorState):
         return {'schema_map': '', 'insertion_order': []}
     
     emit_progress(f"Fetching schema for target tables: {', '.join(relevant_tables)}...")
-    schema_map = get_tables_schema_with_deps.invoke({'table_names': relevant_tables})
+    schema_metadata = get_table_metadata_with_deps(relevant_tables)
     
     try:
-        schema_map_dict = json.loads(schema_map)
-        insertion_order = get_topological_table_order(schema_map_dict)
+        insertion_order = get_topological_table_order(schema_metadata)
         if insertion_order:
             emit_progress(f"Calculated FK topological insertion order: {' -> '.join(insertion_order)}")
     except Exception:
         insertion_order = []
 
+    schema_map_str = format_metadata_to_sql_json(schema_metadata)
+
     return {
-        'schema_map': schema_map,
+        'schema_map': schema_map_str,
         'insertion_order': insertion_order
     }
 

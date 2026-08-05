@@ -1,5 +1,5 @@
 from typing import List, Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from langgraph.graph import MessagesState
 
 class GeneratorState(MessagesState):
@@ -16,23 +16,27 @@ class GeneratorState(MessagesState):
 
 
 class CodeGeneratorIntentResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     generation_mode: Literal["Stress Testing", "Realistic Analytics"] = Field(
         description="The primary mode for mock data generation: 'Stress Testing' for edge-case/adversarial testing, or 'Realistic Analytics' for statistical BI and clean reporting."
     )
 
 class TableSelectionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     relevant_tables: List[str] = Field(
         default_factory=list,
         description="List of table names relevant to the user query"
     )
 
 class UtilityCodeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     utility_python_code: str = Field(
-        description="Raw, executable Python code containing helper functions for realistic data generation (e.g. realistic dates, distribution sampling, domain logic helpers)."
+        description="Raw, executable Python code defining helper functions for realistic data generation (e.g. realistic dates, distribution sampling, domain logic helpers)."
     )
 
 
 class CodeGeneratorResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     python_code: str = Field(
         description="The raw, executable Python script to generate and insert mock data into SQLite."
     )

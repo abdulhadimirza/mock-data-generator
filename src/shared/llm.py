@@ -52,16 +52,11 @@ def create_gemini_llm(
         max_retries=2,
     )
 
-
-# Base / Default Lowest Thinking Models
-deepseek_lowest_thinking: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=1.0)
-gemini_lowest_thinking: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
-
 # Generator Subagent Node Configs
 deepseek_infer: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=0.0)
 gemini_infer: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
 
-deepseek_filter: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=1.0)
+deepseek_filter: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=0.0)
 gemini_filter: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
 
 deepseek_planner: ChatDeepSeek = create_deepseek_llm(reasoning_effort='high', temperature=1.0)
@@ -73,10 +68,8 @@ gemini_utility_synthesizer: ChatGoogleGenerativeAI = create_gemini_llm(thinking_
 deepseek_code_gen: ChatDeepSeek = create_deepseek_llm(reasoning_effort='high', temperature=0.0)
 gemini_code_gen: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='high')
 
-
-deepseek_summary: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=0.0)
+deepseek_summary: ChatDeepSeek = create_deepseek_llm(reasoning_effort='low', temperature=0.0)
 gemini_summary: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
-
 
 # Other Subagents Node Configs
 deepseek_editor: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=0.0) # Temporary
@@ -110,9 +103,9 @@ def get_llm(
         primary, fallbacks = fallbacks[0], [primary] + fallbacks[1:]
 
     if tools:
-        primary = primary.bind_tools(tools)
+        primary = primary.bind_tools(tools, strict=True)
         if fallbacks:
-            fallbacks = [f.bind_tools(tools) for f in fallbacks]
+            fallbacks = [f.bind_tools(tools, strict=True) for f in fallbacks]
 
     if structured_output:
         primary = primary.with_structured_output(structured_output, strict=True)

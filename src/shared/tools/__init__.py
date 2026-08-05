@@ -2,6 +2,8 @@ from .schema import (
     list_tables,
     get_full_schema,
     get_tables_schema_with_deps,
+    get_table_metadata_with_deps,
+    format_metadata_to_sql_json,
     get_topological_table_order,
 )
 from .query import (
@@ -28,6 +30,8 @@ __all__ = [
     "list_tables",
     "get_full_schema",
     "get_tables_schema_with_deps",
+    "get_table_metadata_with_deps",
+    "format_metadata_to_sql_json",
     "get_topological_table_order",
     "execute_select_query",
     "get_table_sample",
