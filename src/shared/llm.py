@@ -59,7 +59,7 @@ gemini_infer: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal
 deepseek_filter: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=0.0)
 gemini_filter: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
 
-deepseek_planner: ChatDeepSeek = create_deepseek_llm(reasoning_effort='high', temperature=1.0)
+deepseek_planner: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=1.0)
 gemini_planner: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='high')
 
 deepseek_utility_synthesizer: ChatDeepSeek = create_deepseek_llm(reasoning_effort='high', temperature=0.0)
@@ -87,11 +87,47 @@ gemini_supervisor: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='mi
 USE_GEMINI_AS_PRIMARY: bool = os.environ.get("USE_GEMINI_AS_PRIMARY", "False").lower() in ("true", "1", "yes")
 
 
+StructuredOutputFormat = Literal['json', 'strict', 'schema']
+
+
+def _resolve_structured_output_method(model: BaseChatModel, format_val: Optional[str]) -> Optional[str]:
+    if not format_val:
+        return None
+
+    if isinstance(model, ChatDeepSeek):
+        if format_val == "json":
+            return "json_mode"
+        elif format_val in ("strict", "schema"):
+            return "function_calling"
+        return format_val
+
+    if isinstance(model, ChatGoogleGenerativeAI):
+        if format_val in ("json", "strict", "schema"):
+            return "json_schema"
+        return format_val
+
+    return format_val
+
+
+def _build_structured_output_kwargs(model: BaseChatModel, format_val: Optional[str]) -> Dict[str, Any]:
+    method = _resolve_structured_output_method(model, format_val)
+    kwargs: Dict[str, Any] = {}
+    if method:
+        kwargs["method"] = method
+
+    # "strict" argument is not supported with method="json_mode"
+    if method != "json_mode":
+        kwargs["strict"] = True
+
+    return kwargs
+
+
 def get_llm(
     primary: BaseChatModel,
     fallbacks: Optional[List[BaseChatModel]] = None,
     tools: Optional[List[Any]] = None,
     structured_output: Optional[Any] = None,
+    format: Optional[StructuredOutputFormat] = None,
 ) -> Union[BaseChatModel, RunnableWithFallbacks]:
     """
     Returns a resilient LLM runnable with transparent fallback handling.
@@ -108,10 +144,18 @@ def get_llm(
             fallbacks = [f.bind_tools(tools, strict=True) for f in fallbacks]
 
     if structured_output:
-        primary = primary.with_structured_output(structured_output, strict=True)
+        primary_kwargs = _build_structured_output_kwargs(primary, format)
+        primary = primary.with_structured_output(structured_output, **primary_kwargs)
+
         if fallbacks:
-            fallbacks = [f.with_structured_output(structured_output, strict=True) for f in fallbacks]
+            new_fallbacks = []
+            for f in fallbacks:
+                fb_kwargs = _build_structured_output_kwargs(f, format)
+                new_fallbacks.append(f.with_structured_output(structured_output, **fb_kwargs))
+            fallbacks = new_fallbacks
 
     return primary.with_fallbacks(fallbacks) if fallbacks else primary
+
+
 
 
