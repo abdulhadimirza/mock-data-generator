@@ -7,9 +7,12 @@ from .prompts import realistic_planner_system_prompt
 from .state import GeneratorState
 from .nodes import (
     emit_progress,
-    code_generator_node,
     sandbox_execution_node,
     subgraph_route_execution,
+)
+from .nodes_realistic import (
+    utility_synthesizer_node,
+    realistic_code_generator_node,
 )
 
 planner_llm = get_llm(primary=deepseek_planner, fallbacks=[gemini_planner])
@@ -35,12 +38,15 @@ def realistic_planner_node(state: GeneratorState, config: RunnableConfig = None)
 def _build_realistic_subgraph():
     builder = StateGraph(GeneratorState)
     builder.add_node('planner', realistic_planner_node)
-    builder.add_node('code_generator', code_generator_node)
+    builder.add_node('utility_synthesizer', utility_synthesizer_node)
+    builder.add_node('code_generator', realistic_code_generator_node)
     builder.add_node('sandbox_execution', sandbox_execution_node)
     
     builder.add_edge(START, 'planner')
-    builder.add_edge('planner', 'code_generator')
+    builder.add_edge('planner', 'utility_synthesizer')
+    builder.add_edge('utility_synthesizer', 'code_generator')
     builder.add_edge('code_generator', 'sandbox_execution')
+
     
     builder.add_conditional_edges(
         'sandbox_execution',
@@ -54,3 +60,4 @@ def _build_realistic_subgraph():
 
 
 realistic_subgraph = _build_realistic_subgraph()
+

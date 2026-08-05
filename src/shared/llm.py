@@ -67,11 +67,16 @@ gemini_filter: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minima
 deepseek_planner: ChatDeepSeek = create_deepseek_llm(reasoning_effort='high', temperature=1.0)
 gemini_planner: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='high')
 
+deepseek_utility_synthesizer: ChatDeepSeek = create_deepseek_llm(reasoning_effort='high', temperature=0.0)
+gemini_utility_synthesizer: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='high')
+
 deepseek_code_gen: ChatDeepSeek = create_deepseek_llm(reasoning_effort='high', temperature=0.0)
 gemini_code_gen: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='high')
 
+
 deepseek_summary: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=0.0)
 gemini_summary: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='minimal')
+
 
 # Other Subagents Node Configs
 deepseek_editor: ChatDeepSeek = create_deepseek_llm(reasoning_effort='disabled', temperature=0.0) # Temporary

@@ -8,6 +8,7 @@ class GeneratorState(MessagesState):
     schema_map: Optional[str]
     insertion_order: Optional[List[str]]
     generated_plan: Optional[str]
+    utility_code: Optional[str]
     generated_code: Optional[str]
     execution_result: Optional[str]
     execution_error: Optional[str]
@@ -25,7 +26,14 @@ class TableSelectionResponse(BaseModel):
         description="List of table names relevant to the user query"
     )
 
+class UtilityCodeResponse(BaseModel):
+    utility_python_code: str = Field(
+        description="Raw, executable Python code containing helper functions for realistic data generation (e.g. realistic dates, distribution sampling, domain logic helpers)."
+    )
+
+
 class CodeGeneratorResponse(BaseModel):
     python_code: str = Field(
         description="The raw, executable Python script to generate and insert mock data into SQLite."
     )
+
