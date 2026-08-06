@@ -29,7 +29,7 @@ def realistic_planner_node(state: GeneratorState, config: RunnableConfig = None)
     #if relevant_tables:
     #    system_prompt += f"\n<relevant_tables>\n{', '.join(relevant_tables)}\n</relevant_tables>"
     if schema_map:
-        system_prompt += f"\n<relevant_schema>\n{schema_map}\n</relevant_schema>"
+        system_prompt += f"\n\n<relevant_schema>\n{schema_map}\n</relevant_schema>"
         
     messages = [SystemMessage(content=system_prompt)] + list(state_messages)
     response = planner_llm.invoke(messages, config=config)
@@ -48,17 +48,19 @@ def utility_synthesizer_node(state: GeneratorState, config: RunnableConfig = Non
     schema_map = state.get("schema_map", "")
     generated_plan = state.get("generated_plan", "")
     
-    prompt = utility_synthesizer_system_prompt
+    system_prompt = utility_synthesizer_system_prompt
     if schema_map:
-        system_prompt += f"\n<relevant_schema>\n{schema_map}\n</relevant_schema>"
+        system_prompt += f"\n\n<relevant_schema>\n{schema_map}\n</relevant_schema>"
     if generated_plan:
-        prompt += f"\n\nExecution Plan:\n<execution_plan>\n{generated_plan}\n</execution_plan>"
+        system_prompt += f"\n\n<execution_plan>\n{generated_plan}\n</execution_plan>"
         
-    messages = [SystemMessage(content=prompt)]
+    messages = [SystemMessage(content=system_prompt)]
     response = utility_llm.invoke(messages, config=config)
     
     utility_python_code = response.utility_python_code
-    return {"utility_code": utility_python_code}
+    utility_stubs_code = response.utility_stubs_code
+
+    return {"utility_code": utility_python_code, "utility_stubs_code": utility_stubs_code}
 
 
 # 2. Realistic Code Generator Node
@@ -76,21 +78,22 @@ def realistic_code_generator_node(state: GeneratorState, config: RunnableConfig 
     generated_plan = state.get("generated_plan", "")
     insertion_order = state.get("insertion_order", [])
     utility_code = state.get("utility_code", "")
+    utility_stubs_code = state.get("utility_stubs_code", "")
     
     system_prompt = realistic_code_generator_system_prompt
-    if utility_code:
-        system_prompt += f"\n\nAvailable Utility Functions:\n<utility_code>\n{utility_code}\n</utility_code>"
+    if utility_stubs_code:
+        system_prompt += f"\n\n<utility_stubs_code>\n{utility_stubs_code}\n</utility_stubs_code>"
     if insertion_order:
-        system_prompt += f"\n\nStrict Table Insertion Order (Parent -> Child):\n<strict_insertion_order>\n{' -> '.join(insertion_order)}\n</strict_insertion_order>"
+        system_prompt += f"\n\n<strict_insertion_order>\n{' -> '.join(insertion_order)}\n</strict_insertion_order>"
     if schema_map:
-        system_prompt += f"\n\nTarget Database Schema:\n<target_database_schema>\n{schema_map}\n</target_database_schema>"
+        system_prompt += f"\n\n<relevant_schema>\n{schema_map}\n</relevant_schema>"
     if generated_plan:
-        system_prompt += f"\n\nExecution Plan:\n<execution_plan>\n{generated_plan}\n</execution_plan>"
+        system_prompt += f"\n\n<execution_plan>\n{generated_plan}\n</execution_plan>"
         
-    prompt_messages = [SystemMessage(content=system_prompt)] + list(state_messages)
-    response = realistic_code_llm.invoke(prompt_messages, config=config)
+    messages = [SystemMessage(content=system_prompt)]
+    response = realistic_code_llm.invoke(messages, config=config)
     
-    raw_loop_code = response.python_code
+    raw_loop_code = response.execution_python_code
     
     # Prepend utility functions to build the final executable script
     code_blocks = []

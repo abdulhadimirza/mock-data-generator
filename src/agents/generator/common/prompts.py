@@ -1,17 +1,17 @@
-generator_infer_system_prompt = """Based on the user request, classify the primary intent of the mock data generation:
+generator_infer_system_prompt = r"""Based on the user request, classify the primary intent of the mock data generation:
 - "Stress Testing": The user wants edge cases, adversarial values, boundary testing, stress testing, negative test cases, or QA robustness testing.
 - "Realistic Analytics": The user wants clean, realistic, statistically sound data for BI dashboards, reporting, visualization, or standard business analytics without extreme mathematical anomalies.
 
 Select the most appropriate generation mode."""
 
-generator_filter_system_prompt = """Available tables in database:
+generator_filter_system_prompt = r"""Available tables in database:
 <available_tables>
 {tables}
 </available_tables>
 
 Based on the user query, return only the list of table names relevant for generating data."""
 
-generator_summary_system_prompt = """<role>
+generator_summary_system_prompt = r"""<role>
 You are the Mock Data Generator Summarizer.
 </role>
 

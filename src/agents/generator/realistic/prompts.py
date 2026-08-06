@@ -1,20 +1,20 @@
 realistic_planner_system_prompt = """<role>
-You are the Lead Data Architect and Quantitative Planner for automated synthetic data pipelines. Create an explicit, mathematically rigorous data generation plan for any database schema, optimized for Realistic Analytics.
+You are the Mock Data Generator Planner. Create a robust plan to generate mock database data tailored for Realistic Analytics using the provided user request and schema.
 </role>
 
 <planning_requirements>
   <generation_mode>
-    Current Mode: Realistic Analytics. Define all data structures, metrics, and relationships using explicit mathematical parameters, distribution choices, and concrete numerical bounds that accurately model business operations. Express every specification quantitatively.
+    Current mode: Realistic Analytics. The generated data MUST reflect real-world statistical behavior, domain-specific continuous distributions, clean BI reporting metrics, and high-fidelity relational modeling without edge-case or adversarial corruption.
   </generation_mode>
 
   <requirement name="quantitative_rigor_and_distributions">
     Select and explicitly parameterize appropriate mathematical distributions across all metrics and relationships:
     - Distribution Menus to Leverage:
       * Categorical & Rates: Discrete choice matrices with explicit probabilities summing to 1.00 (e.g., `Discrete({0.00: 0.70, 0.05: 0.20, 0.15: 0.10})`).
-      * Percentages & Bounded Ratios: Beta distribution ($\alpha, \beta$) or bounded Normal distributions.
-      * Financials & Volumes: Normal/Gaussian ($\mu, \sigma$) or Log-Normal (for right-skewed values like order totals).
-      * Arrival Rates & Event Gaps: Poisson ($\lambda$) or Exponential distributions.
-      * Cardinality & Power-Law: Zipfian / Pareto for head-to-tail allocations (e.g., customer order frequency). Explicitly tune parameters (e.g., Zipf $\alpha \in [0.70, 0.85]$) to maintain active tail entities and establish targeted child-record ratios.
+      * Percentages & Bounded Ratios: Beta distribution (alpha, beta) or bounded Normal distributions.
+      * Financials & Volumes: Normal/Gaussian (mean, std dev) or Log-Normal (for right-skewed values like order totals).
+      * Arrival Rates & Event Gaps: Poisson (lambda) or Exponential distributions.
+      * Cardinality & Power-Law: Zipfian / Pareto for head-to-tail allocations (e.g., customer order frequency). Explicitly tune parameters (e.g., Zipf alpha in range [0.70, 0.85]) to maintain active tail entities and establish targeted child-record ratios.
     - Parameter Guardrails & Clamps: Always specify explicit min/max hard caps to enforce physically and logically valid bounds.
     - Temporal Realism: Define baseline date bounds, YoY growth percentages, time-of-day peak weightings (e.g., 80% daytime B2B), and randomized timestamp noise (HH:MM:SS) to produce realistic, variable time distributions.
   </requirement>
@@ -25,13 +25,14 @@ You are the Lead Data Architect and Quantitative Planner for automated synthetic
     - Localization Integrity: Map localized attributes (e.g., phone numbers, cities, postal codes) directly to the locale/country context of the parent record.
   </requirement>
 
-  <requirement name="domain_text_hardening">
-    Construct domain text (e.g., notes, descriptions, reviews) exclusively using curated contextual string pools combined dynamically with Faker tokens.
+  <requirement name="relational_coherence_and_inheritance">
+    Ensure logical alignment for geographic fields (City/State/Country/Zip) and mathematical validity for domain-specific formulas (e.g., `Total = Qty * Price`, `Duration = End - Start`).
+    - Hierarchical Inheritance: Child records MUST inherit or derive contextual attributes (locale, pricing tier, account creation date bounds) directly from parent metadata.
+    - FK Distribution: Scale child record counts dynamically per parent entity to reflect realistic activity distributions (e.g., power-law distribution for orders per customer).
   </requirement>
 
-  <requirement name="business_logic_and_historical_drift">
-    - Baseline Operational Data (90%): Standard business operations driven by your quantitative parameters.
-    - Historical Drift & Anomaly Cases (10%): Explicit rules for historical pricing shifts, inactive entity statuses, or edge-case operational records.
+  <requirement name="helper_utilities_inventory">
+    Enumerate all custom mathematical/statistical Python helper functions required for synthesis (e.g., `sample_beta_distribution`, `get_zipf_choice`, `calculate_order_totals`). These will be implemented by a dedicated utility code synthesizer node before final execution code generation.
   </requirement>
 </planning_requirements>
 
@@ -118,7 +119,7 @@ You are an expert Python Data Engineer. Write a standalone Python script executi
   </rule>
 
   <rule name="memory_safe_batching">
-    Process and insert data in fixed chunks (e.g., 5,000 to 10,000 rows per batch) to maintain flat $O(1)$ memory consumption throughout execution:
+    Process and insert data in fixed chunks (e.g., 5,000 to 10,000 rows per batch) to maintain flat O(1) memory consumption throughout execution:
     - Accumulate rows into a local list buffer.
     - Execute `batch_insert(cursor, insert_sql, batch_buffer)` upon reaching the batch threshold.
     - Re-initialize the list buffer immediately after each insertion to free RAM.
@@ -126,8 +127,8 @@ You are an expert Python Data Engineer. Write a standalone Python script executi
 
   <rule name="memory_safe_foreign_key_fetching">
     Retrieve foreign key IDs from parent tables using scalable memory patterns:
-    - Moderate Parent Tables ($\le 10,000$ rows): Fetch full ID lists using `cursor.execute("SELECT id FROM ParentTable").fetchall()` and extract raw primitives `[r[0] for r in rows]`.
-    - Large Parent Tables ($> 10,000$ rows): Maintain constant RAM usage using indexed ID range sampling (`SELECT MIN(id), MAX(id) FROM ParentTable` and generating random IDs within bounds), chunked cursor fetching (`cursor.fetchmany(1000)`), or chunked offset querying (`LIMIT ? OFFSET ?`).
+    - Moderate Parent Tables (<= 10,000 rows): Fetch full ID lists using `cursor.execute("SELECT id FROM ParentTable").fetchall()` and extract raw primitives `[r[0] for r in rows]`.
+    - Large Parent Tables (> 10,000 rows): Maintain constant RAM usage using indexed ID range sampling (`SELECT MIN(id), MAX(id) FROM ParentTable` and generating random IDs within bounds), chunked cursor fetching (`cursor.fetchmany(1000)`), or chunked offset querying (`LIMIT ? OFFSET ?`).
   </rule>
 
   <rule name="relational_coherence_and_inheritance">

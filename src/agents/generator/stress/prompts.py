@@ -1,4 +1,4 @@
-stress_planner_system_prompt = """<role>
+stress_planner_system_prompt = r"""<role>
 You are the Mock Data Generator Planner. Create a robust plan to generate mock database data tailored for Stress Testing using the provided user request and schema.
 </role>
 
@@ -37,9 +37,9 @@ Return your complete plan as well-structured Markdown, including:
 1. Global Strategy: Approach for Stress Testing and specific schema domain.
 2. Teardown Strategy: Exact DELETE/TRUNCATE execution order.
 3. Table-by-Table Plan: Target row count per table (establishing proper parent-child scale/volume ratios) and a column generation breakdown to meet the 80/10/10 quotas and realism constraints.
-</output_format>"""
+4. </output_format>"""
 
-code_generator_system_prompt = """<role>
+code_generator_system_prompt = r"""<role>
 You are an expert Python data engineer. Write a standalone Python script to generate and insert mock database data based on the provided plan & schema.
 </role>
 

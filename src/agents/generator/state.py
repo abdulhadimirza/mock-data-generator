@@ -9,6 +9,7 @@ class GeneratorState(MessagesState):
     insertion_order: Optional[List[str]]
     generated_plan: Optional[str]
     utility_code: Optional[str]
+    utility_stubs_code: Optional[str]
     generated_code: Optional[str]
     execution_result: Optional[str]
     execution_error: Optional[str]
