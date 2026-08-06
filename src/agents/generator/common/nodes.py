@@ -1,37 +1,22 @@
-import json
-from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END
-from langgraph.config import get_stream_writer
 
 from shared.tools import list_tables, get_table_metadata_with_deps, format_metadata_to_sql_json, get_topological_table_order
 from shared.llm import (
     get_llm,
     deepseek_infer, gemini_infer,
     deepseek_filter, gemini_filter,
-    deepseek_code_gen, gemini_code_gen,
     deepseek_summary, gemini_summary,
 )
+from ..state import GeneratorState, CodeGeneratorIntentResponse, TableSelectionResponse
+from ..sandbox import run_in_isolated_sandbox
+from .utils import emit_progress, _extract_initial_user_request
 from .prompts import (
     generator_infer_system_prompt,
     generator_filter_system_prompt,
-    code_generator_system_prompt,
     generator_summary_system_prompt,
 )
-from .state import GeneratorState, CodeGeneratorIntentResponse, TableSelectionResponse, CodeGeneratorResponse
-from .sandbox import run_in_isolated_sandbox
-
-
-def emit_progress(message: str):
-    try:
-        writer = get_stream_writer()
-        writer({
-            'event': 'subagent_progress',
-            'tool_name': 'call_mock_generator',
-            'message': message
-        })
-    except Exception:
-        pass
 
 
 # 0. Intent Inference Node
@@ -88,36 +73,6 @@ def fetch_schema_node(state: GeneratorState):
     }
 
 
-# 4. Code Generator Node (Shared across subgraphs)
-code_gen_llm = get_llm(primary=deepseek_code_gen, fallbacks=[gemini_code_gen], structured_output=CodeGeneratorResponse)
-def code_generator_node(state: GeneratorState, config: RunnableConfig = None):
-    current_retries = state.get('retry_count', 0)
-    emit_progress(f"Generating Python data insertion script (Attempt {current_retries + 1})...")
-    state_messages = state.get('messages', [])
-    schema_map = state.get('schema_map', '')
-    generated_plan = state.get('generated_plan', '')
-    insertion_order = state.get('insertion_order', [])
-    
-    system_prompt = code_generator_system_prompt
-    if insertion_order:
-        system_prompt += f"\n\nStrict Table Insertion Order (Parent -> Child):\n<strict_insertion_order>\n{' -> '.join(insertion_order)}\n</strict_insertion_order>"
-    if schema_map:
-        system_prompt += f"\n\nTarget Database Schema:\n<target_database_schema>\n{schema_map}\n</target_database_schema>"
-    if generated_plan:
-        system_prompt += f"\n\nExecution Plan:\n<execution_plan>\n{generated_plan}\n</execution_plan>"
-        
-    prompt_messages = [SystemMessage(content=system_prompt)] + list(state_messages)
-        
-    response = code_gen_llm.invoke(prompt_messages, config=config)
-    python_code = response.python_code
-        
-    return {
-        'generated_code': python_code,
-        'retry_count': current_retries + 1,
-        'messages': [AIMessage(content=f"Generated Data Insertion Script:\n```python\n{python_code}\n```")]
-    }
-
-
 # 5. Sandbox Execution Node (Shared across subgraphs)
 def sandbox_execution_node(state: GeneratorState):
     emit_progress("Executing generated script in sandbox environment...")
@@ -149,13 +104,6 @@ def sandbox_execution_node(state: GeneratorState):
             'execution_error': message,
             'messages': [HumanMessage(content=error_feedback)]
         }
-
-
-def _extract_initial_user_request(state_messages):
-    for m in state_messages:
-        if isinstance(m, HumanMessage):
-            return m
-    return None
 
 
 # 6. Summary Node

@@ -2,15 +2,15 @@ from langchain_core.tools import tool
 from langgraph.graph import StateGraph, START, END
 
 from .state import GeneratorState
-from .nodes import (
-    emit_progress,
+from .common.utils import emit_progress
+from .common.nodes import (
     infer_intent_node,
     filter_tables_node,
     fetch_schema_node,
     summary_node,
 )
-from .subgraph_realistic import realistic_subgraph
-from .subgraph_stress import stress_subgraph
+from .realistic.graph import realistic_subgraph
+from .stress.graph import stress_subgraph
 
 
 # 9. Main Workflow Assembly
@@ -58,9 +58,13 @@ mock_generator_graph = generator_workflow.compile(name="generator_subagent_graph
 def call_mock_generator(query: str) -> str:
     """
     Delegate mock data generation to the Mock Data Generator subagent.
-    Generates and inserts mock data into database tables and returns a summary of the execution.
-    Inspects schema automatically.
-    Can clear out existing data too.
+
+    What it does:
+    
+    1. Inspects schema.
+    2. Clears out existing data if needed.
+    3. Generates and inserts mock data into database tables.
+    4. Returns a summary of the execution.
     
     Args:
         query: Clear request or requirements regarding mock data generation.

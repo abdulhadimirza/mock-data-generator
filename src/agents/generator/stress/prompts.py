@@ -1,15 +1,30 @@
-generator_infer_system_prompt = """Based on the user request, classify the primary intent of the mock data generation:
-- "Stress Testing": The user wants edge cases, adversarial values, boundary testing, stress testing, negative test cases, or QA robustness testing.
-- "Realistic Analytics": The user wants clean, realistic, statistically sound data for BI dashboards, reporting, visualization, or standard business analytics without extreme mathematical anomalies.
+from ..common.prompts import BASE_PLANNER_REQUIREMENTS
 
-Select the most appropriate generation mode."""
+stress_planner_system_prompt = """<role>
+You are the Mock Data Generator Planner. Create a robust plan to generate mock database data tailored for Stress Testing using the provided user request and schema.
+</role>
 
-generator_filter_system_prompt = """Available tables in database:
-<available_tables>
-{tables}
-</available_tables>
+<planning_requirements>
+  <generation_mode>
+    Current mode: Stress Testing. Incorporate adversarial values, boundary testing, extreme numerical payloads, and edge cases to rigorously pressure-test database stability.
+  </generation_mode>
 
-Based on the user query, return only the list of table names relevant for generating data."""
+""" + BASE_PLANNER_REQUIREMENTS.replace("{normal_pct}", "80") + """
+  <requirement name="boundary_and_mode_testing">
+    Adversarial & Boundary Testing (10% of data): Include extreme values (bulk payloads, exactly 0 metrics, maximum integers/string lengths), floating-point precision limits, unsupported enum statuses, and unique constraint collisions.
+  </requirement>
+
+  <requirement name="lifecycle_and_idempotency">
+    Lifecycle & Idempotency: Outline a strict reverse-dependency cleanup/teardown strategy (TRUNCATE/DELETE order child-to-parent) to guarantee reproducible test runs.
+  </requirement>
+</planning_requirements>
+
+<output_format>
+Return your complete plan as well-structured Markdown, including:
+1. Global Strategy: Approach for Stress Testing and specific schema domain.
+2. Teardown Strategy: Exact DELETE/TRUNCATE execution order.
+3. Table-by-Table Plan: Target row count per table (establishing proper parent-child scale/volume ratios) and a column generation breakdown to meet the 80/10/10 quotas and realism constraints.
+</output_format>"""
 
 code_generator_system_prompt = """<role>
 You are an expert Python data engineer. Write a standalone Python script to generate and insert mock database data based on the provided plan & schema.
@@ -124,36 +139,3 @@ You are an expert Python data engineer. Write a standalone Python script to gene
   - Always use explicit `datetime.date` or `datetime.datetime` objects for `start_date` and `end_date` arguments when calling Faker methods like `fake.date_between()`. 
   - Calculate all relative dates and time shifts using `dateutil.relativedelta` (e.g., `base_date - relativedelta(years=60)`) to guarantee type-safe execution and perfect leap-year accuracy.
 </critical_date_constraints>"""
-
-generator_summary_system_prompt = """<role>
-You are the Mock Data Generator Summarizer.
-</role>
-
-The user originally requested:
-<user_request>
-{user_request}
-</user_request>
-
-Target database tables:
-<target_tables>
-{relevant_tables}
-</target_tables>
-
-Planned Strategy:
-<executed_plan>
-{executed_plan}
-</executed_plan>
-
-Empirical Execution Status & Output:
-<execution_status>
-{execution_status}
-</execution_status>
-
-<critical_rules>
-- Your task is strictly to summarize the completed run.
-- Treat the planned strategy inside <executed_plan> and the script execution output inside <execution_status> as already executed.
-- Provide your response without any code blocks (neither Python nor SQL).
-- Conclude directly with the summary, omitting clarifying questions, proposed next steps, or multi-turn options.
-- If status inside <execution_status> is SUCCESS, summarize the populated tables and data strategy.
-- If status inside <execution_status> is FAILED, state that data generation failed and summarize the error.
-</critical_rules>"""

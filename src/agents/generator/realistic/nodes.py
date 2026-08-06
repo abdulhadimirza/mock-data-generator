@@ -3,19 +3,40 @@ from langchain_core.runnables import RunnableConfig
 
 from shared.llm import (
     get_llm,
+    deepseek_planner, gemini_planner,
     deepseek_utility_synthesizer, gemini_utility_synthesizer,
     deepseek_code_gen, gemini_code_gen,
 )
-from .prompts import (
-    utility_synthesizer_system_prompt,
-    realistic_code_generator_system_prompt,
-)
-from .state import (
+from ..common.utils import emit_progress
+from ..state import (
     GeneratorState,
     UtilityCodeResponse,
     CodeGeneratorResponse,
 )
-from .nodes import emit_progress
+from .prompts import (
+    realistic_planner_system_prompt,
+    utility_synthesizer_system_prompt,
+    realistic_code_generator_system_prompt,
+)
+
+# 0. Planner Node
+planner_llm = get_llm(primary=deepseek_planner, fallbacks=[gemini_planner])
+
+def realistic_planner_node(state: GeneratorState, config: RunnableConfig = None):
+    emit_progress("Planning realistic analytics mock data strategy...")
+    state_messages = state.get('messages', [])
+    relevant_tables = state.get('relevant_tables', [])
+    schema_map = state.get('schema_map', '')
+    
+    system_prompt = realistic_planner_system_prompt
+    if relevant_tables:
+        system_prompt += f"\n\nRelevant tables identified for this request:\n<relevant_tables>\n{', '.join(relevant_tables)}\n</relevant_tables>"
+    if schema_map:
+        system_prompt += f"\n\nSchema map of relevant tables:\n<schema_map>\n{schema_map}\n</schema_map>"
+        
+    messages = [SystemMessage(content=system_prompt)] + list(state_messages)
+    response = planner_llm.invoke(messages, config=config)
+    return {'generated_plan': response.content}
 
 
 # 1. Utility Helper Synthesizer Node
@@ -24,7 +45,6 @@ utility_llm = get_llm(
     fallbacks=[gemini_utility_synthesizer],
     structured_output=UtilityCodeResponse,
 )
-
 
 def utility_synthesizer_node(state: GeneratorState, config: RunnableConfig = None):
     emit_progress("Synthesizing realistic data generator helper functions...")
