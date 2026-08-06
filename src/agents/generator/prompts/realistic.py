@@ -25,14 +25,6 @@ The following imports and pre-initialized instances are available:
 1. Write pure Python helper functions that generate domain-specific realistic values, bell-curve statistical distributions, weighted status choices, and valid dates according to the Execution Plan.
 2. Ensure monetary fields use `Decimal` for precision.
 3. Do NOT write database insertion logic here. Only write helper functions that return synthetic data values or dicts/tuples.
-4. Return the response in valid JSON format matching the requested schema.
-<schema>
-class UtilityCodeResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    utility_python_code: str = Field(
-        description="Raw, executable Python code defining helper functions for realistic data generation (e.g. realistic dates, distribution sampling, domain logic helpers)."
-    )
-</schema>
 </instructions>
 """
 
@@ -83,13 +75,5 @@ You are an expert Python Data Engineer. Write a standalone Python script executi
 1. Note: The utility helper functions have ALREADY been prepended to the script file. Do NOT redefine them.
 2. Write functions to populate each table in the exact order listed in <strict_insertion_order>.
 3. Write the main database connection block (`with get_db_connection() as conn:`) at the bottom to execute the population functions in strict topological order.
-4. Return the response in valid JSON format matching the requested schema.
-<schema>
-class CodeGeneratorResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    python_code: str = Field(
-        description="The raw, executable Python script to generate and insert mock data into SQLite."
-    )
-</schema>
 </instructions>
 """
