@@ -28,16 +28,3 @@ class TableSelectionResponse(BaseModel):
         description="List of table names relevant to the user query"
     )
 
-class UtilityCodeResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    utility_python_code: str = Field(
-        description="Raw, executable Python code defining helper functions for realistic data generation (e.g. realistic dates, distribution sampling, domain logic helpers)."
-    )
-
-
-class CodeGeneratorResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    python_code: str = Field(
-        description="The raw, executable Python script to generate and insert mock data into SQLite."
-    )
-

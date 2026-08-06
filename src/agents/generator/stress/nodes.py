@@ -7,7 +7,8 @@ from shared.llm import (
     deepseek_code_gen, gemini_code_gen,
 )
 from ..common.utils import emit_progress
-from ..state import GeneratorState, CodeGeneratorResponse
+from ..state import GeneratorState
+from .state import CodeGeneratorResponse
 from .prompts import (
     stress_planner_system_prompt,
     code_generator_system_prompt,

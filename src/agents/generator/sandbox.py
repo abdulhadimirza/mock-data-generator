@@ -9,6 +9,8 @@ import sys
 import io
 import multiprocessing
 import queue
+import numpy as np
+import numpy
 from decimal import Decimal
 from enum import Enum
 from contextlib import contextmanager
@@ -156,6 +158,8 @@ def run_in_sandbox(code: str, safe_builtins: dict = None):
             'Decimal': Decimal,
             'decimal': decimal,
             'json': json,
+            'numpy': numpy,
+            'np': np,
             'Faker': Faker,
             'fake': Faker(),
             'get_db_connection': safe_get_db_connection,

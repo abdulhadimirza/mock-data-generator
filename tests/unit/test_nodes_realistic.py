@@ -1,8 +1,6 @@
 from unittest.mock import MagicMock, patch
-from agents.generator.state import (
-    GeneratorState,
-    UtilityCodeResponse,
-)
+from agents.generator.state import GeneratorState
+from agents.generator.realistic.state import UtilityCodeResponse
 from agents.generator.realistic.nodes import (
     utility_synthesizer_node,
     realistic_code_generator_node,
