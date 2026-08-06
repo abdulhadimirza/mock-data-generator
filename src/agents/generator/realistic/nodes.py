@@ -22,14 +22,14 @@ planner_llm = get_llm(primary=deepseek_planner, fallbacks=[gemini_planner])
 def realistic_planner_node(state: GeneratorState, config: RunnableConfig = None):
     emit_progress("Planning realistic analytics mock data strategy...")
     state_messages = state.get('messages', [])
-    relevant_tables = state.get('relevant_tables', [])
+    #relevant_tables = state.get('relevant_tables', [])
     schema_map = state.get('schema_map', '')
     
     system_prompt = realistic_planner_system_prompt
-    if relevant_tables:
-        system_prompt += f"\n\nRelevant tables identified for this request:\n<relevant_tables>\n{', '.join(relevant_tables)}\n</relevant_tables>"
+    #if relevant_tables:
+    #    system_prompt += f"\n<relevant_tables>\n{', '.join(relevant_tables)}\n</relevant_tables>"
     if schema_map:
-        system_prompt += f"\n\nSchema map of relevant tables:\n<schema_map>\n{schema_map}\n</schema_map>"
+        system_prompt += f"\n<relevant_schema>\n{schema_map}\n</relevant_schema>"
         
     messages = [SystemMessage(content=system_prompt)] + list(state_messages)
     response = planner_llm.invoke(messages, config=config)
@@ -50,7 +50,7 @@ def utility_synthesizer_node(state: GeneratorState, config: RunnableConfig = Non
     
     prompt = utility_synthesizer_system_prompt
     if schema_map:
-        prompt += f"\n\nTarget Database Schema:\n<target_database_schema>\n{schema_map}\n</target_database_schema>"
+        system_prompt += f"\n<relevant_schema>\n{schema_map}\n</relevant_schema>"
     if generated_plan:
         prompt += f"\n\nExecution Plan:\n<execution_plan>\n{generated_plan}\n</execution_plan>"
         
