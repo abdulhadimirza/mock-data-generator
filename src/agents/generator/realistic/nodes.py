@@ -41,6 +41,7 @@ utility_llm = get_llm(
     primary=deepseek_utility_synthesizer,
     fallbacks=[gemini_utility_synthesizer],
     structured_output=UtilityCodeResponse,
+    format='json',
 )
 
 def utility_synthesizer_node(state: GeneratorState, config: RunnableConfig = None):
@@ -68,6 +69,7 @@ realistic_code_llm = get_llm(
     primary=deepseek_code_gen,
     fallbacks=[gemini_code_gen],
     structured_output=CodeGeneratorResponse,
+    format='json',
 )
 
 def realistic_code_generator_node(state: GeneratorState, config: RunnableConfig = None):

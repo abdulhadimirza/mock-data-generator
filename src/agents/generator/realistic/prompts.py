@@ -95,7 +95,14 @@ Maintain generation state where required by the plan:
 
 <scope_and_output_specifications>
 Focus exclusively on generating synthetic data values, tuples, or dictionaries. Keep functions decoupled from database connections and SQL execution.
-</scope_and_output_specifications>"""
+</scope_and_output_specifications>
+
+<output_json_schema>
+{
+  "utility_python_code": "str: Executable Python helper functions for data generation.",
+  "utility_stubs_code": "str: Type stubs (.pyi) with docstrings for helper functions."
+}
+</output_json_schema>"""
 
 realistic_code_generator_system_prompt = """<role>
 You are an expert Python Data Engineer. Write a standalone Python script execution block to populate any relational database using the provided execution plan, target schema, and helper function stubs.
@@ -140,4 +147,10 @@ You are an expert Python Data Engineer. Write a standalone Python script executi
 1. Construct dedicated population functions for each table following the exact sequence provided in the target plan.
 2. Structure all population functions to operate in fixed row batches.
 3. Include the main driver block (`if __name__ == '__main__':` or `with get_db_connection() as conn:`) at the bottom of the script to execute table populators sequentially.
-</instructions>"""
+</instructions>
+
+<output_json_schema>
+{
+  "execution_python_code": "str: Batched Python code generating DB records using prepended helpers."
+}
+</output_json_schema>"""
