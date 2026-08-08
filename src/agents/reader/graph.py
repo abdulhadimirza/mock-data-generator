@@ -24,7 +24,7 @@ reader_workflow.add_node('tools', ToolNode(reader_tools))
 reader_workflow.add_edge(START, 'agent')
 reader_workflow.add_conditional_edges('agent', tools_condition, {'tools': 'tools', END: END})
 reader_workflow.add_edge('tools', 'agent')
-database_reader_graph = reader_workflow.compile(name="reader_subagent_graph")
+database_reader_graph = reader_workflow.compile(name='reader_subagent_graph')
 
 # 2. Subagent Tool Definition
 @tool
@@ -35,4 +35,4 @@ def call_database_reader(query: str) -> str:
     Args:
         query: Clear instructions or request regarding database inspection or data querying.
     """
-    return "Database Reader task initiated."
+    return 'Database Reader task initiated.'

@@ -15,15 +15,15 @@ class GeneratorState(MessagesState):
 
 
 class CodeGeneratorIntentResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    generation_mode: Literal["Stress Testing", "Realistic Analytics"] = Field(
+    model_config = ConfigDict(extra='forbid')
+    generation_mode: Literal['Stress Testing', 'Realistic Analytics'] = Field(
         description="The primary mode for mock data generation: 'Stress Testing' for edge-case/adversarial testing, or 'Realistic Analytics' for statistical BI and clean reporting."
     )
 
 class TableSelectionResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra='forbid')
     relevant_tables: List[str] = Field(
         default_factory=list,
-        description="List of table names relevant to the user query"
+        description='List of table names relevant to the user query'
     )
 

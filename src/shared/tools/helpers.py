@@ -32,7 +32,7 @@ def format_row(row_dict: dict) -> dict:
     formatted = {}
     for k, v in row_dict.items():
         if isinstance(v, bytes):
-            formatted[k] = f"<BLOB {len(v)} bytes>"
+            formatted[k] = f'<BLOB {len(v)} bytes>'
         else:
             formatted[k] = v
     return formatted

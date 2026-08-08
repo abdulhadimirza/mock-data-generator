@@ -129,11 +129,11 @@ def list_tables() -> str:
                     tables.append(name)
             
             if not tables:
-                return "No tables found in the database."
+                return 'No tables found in the database.'
                 
-            return "\n".join(tables)
+            return '\n'.join(tables)
     except Exception as e:
-        raise ToolException(f"Error reading tables: {e}")
+        raise ToolException(f'Error reading tables: {e}')
 
 @tool()
 def get_full_schema() -> str:
@@ -153,7 +153,7 @@ def get_full_schema() -> str:
 
             return json.dumps(schema, indent=2)
     except Exception as e:
-        raise ToolException(f"Error fetching full database schema: {e}")
+        raise ToolException(f'Error fetching full database schema: {e}')
 
 @tool()
 def get_tables_schema_with_deps(table_names: List[str]) -> str:
@@ -162,5 +162,5 @@ def get_tables_schema_with_deps(table_names: List[str]) -> str:
         metadata_map = get_table_metadata_with_deps(table_names)
         return format_metadata_to_sql_json(metadata_map)
     except Exception as e:
-        raise ToolException(f"Error fetching schema with dependencies: {e}")
+        raise ToolException(f'Error fetching schema with dependencies: {e}')
 

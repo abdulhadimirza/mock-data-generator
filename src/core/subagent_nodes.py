@@ -49,7 +49,7 @@ def create_subagent_node(
                         raise e
                     except Exception as e:
                         emit_lifecycle_event('subagent_error', tc['name'], tc['id'], error=str(e))
-                        tool_messages.append(ToolMessage(content=f"Subagent execution failed: {str(e)}", name=tc['name'], tool_call_id=tc['id']))
+                        tool_messages.append(ToolMessage(content=f'Subagent execution failed: {str(e)}', name=tc['name'], tool_call_id=tc['id']))
 
         return {'messages': tool_messages}
     return node

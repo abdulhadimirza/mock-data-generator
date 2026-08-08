@@ -26,12 +26,12 @@ from agents.supervisor.graph import agent
 @dataclass
 class ChatEvent:
     """Base class for all events in the chat history."""
-    source: str = "Assistant"
+    source: str = 'Assistant'
     event_type: str = field(init=False)
 
 @dataclass
 class UserMessageEvent(ChatEvent):
-    content: str = ""
+    content: str = ''
     is_history: bool = False
     event_type: str = field(default='user_message', init=False)
 
@@ -41,12 +41,12 @@ class MessageStartEvent(ChatEvent):
 
 @dataclass
 class MessageChunkEvent(ChatEvent):
-    chunk: str = ""
+    chunk: str = ''
     event_type: str = field(default='message_chunk', init=False)
 
 @dataclass
 class MessageCompleteEvent(ChatEvent):
-    content: str = ""
+    content: str = ''
     event_type: str = field(default='message_complete', init=False)
 
 @dataclass
@@ -55,34 +55,34 @@ class ThinkingEvent(ChatEvent):
 
 @dataclass
 class ToolRequestEvent(ChatEvent):
-    tool_name: str = ""
+    tool_name: str = ''
     arguments: Dict[str, Any] = field(default_factory=dict)
     event_type: str = field(default='tool_request', init=False)
 
 @dataclass
 class ToolResultEvent(ChatEvent):
-    tool_name: str = ""
+    tool_name: str = ''
     arguments: Dict[str, Any] = field(default_factory=dict)
     result: Any = None
     event_type: str = field(default='tool_result', init=False)
 
 @dataclass
 class ToolErrorEvent(ChatEvent):
-    tool_name: str = ""
+    tool_name: str = ''
     arguments: Dict[str, Any] = field(default_factory=dict)
-    error: str = ""
+    error: str = ''
     event_type: str = field(default='tool_error', init=False)
 
 @dataclass
 class ToolApprovalRequestEvent(ChatEvent):
-    tool_name: str = ""
+    tool_name: str = ''
     arguments: Dict[str, Any] = field(default_factory=dict)
-    message: str = ""
+    message: str = ''
     event_type: str = field(default='tool_approval_request', init=False)
 
 @dataclass
 class SubagentLifecycleEvent(ChatEvent):
-    lifecycle_type: str = "start"  # 'start', 'result', 'error'
+    lifecycle_type: str = 'start'  # 'start', 'result', 'error'
     arguments: Optional[Dict[str, Any]] = None
     result: Optional[str] = None
     error: Optional[str] = None
@@ -90,7 +90,7 @@ class SubagentLifecycleEvent(ChatEvent):
 
 @dataclass
 class SubagentProgressEvent(ChatEvent):
-    message: str = ""
+    message: str = ''
     event_type: str = field(default='subagent_progress', init=False)
 
 @dataclass
@@ -99,7 +99,7 @@ class TurnCompleteEvent(ChatEvent):
 
 @dataclass
 class ErrorEvent(ChatEvent):
-    error: str = ""
+    error: str = ''
     event_type: str = field(default='error', init=False)
 
 
@@ -154,7 +154,7 @@ class ChatAgent:
             if isinstance(msg, HumanMessage):
                 self._emit(UserMessageEvent(content=msg.content, is_history=True))
             elif isinstance(msg, AIMessage):
-                text_content = ""
+                text_content = ''
                 if isinstance(msg.content, str):
                     text_content = msg.content
                 elif isinstance(msg.content, list):
@@ -208,7 +208,7 @@ class ChatAgent:
                         t_args = payload.get('arguments', {})
                         t_msg = payload.get('message', 'Approval required.')
                     else:
-                        t_name = "UnknownTool"
+                        t_name = 'UnknownTool'
                         t_args = {}
                         t_msg = str(payload)
                         
@@ -244,7 +244,7 @@ class ChatAgent:
                     text_parts.append(item)
                 else:
                     text_parts.append(str(item))
-            return "\n".join(text_parts) if text_parts else str(raw_output)
+            return '\n'.join(text_parts) if text_parts else str(raw_output)
         else:
             return str(raw_output)
 
@@ -260,13 +260,13 @@ class ChatAgent:
             try:
                 listener(event)
             except Exception as e:
-                print(f"[ChatAgent] Listener error: {e}")
+                print(f'[ChatAgent] Listener error: {e}')
 
     def _inject_error_to_agent_state(self, error_msg: str) -> None:
         """
         Inject an error message into the agent's state so the LLM is aware of the failure on the next turn.
         """
-        agent.update_state(self.config, {'messages': [('system', f"The previous agent turn failed with error: {error_msg}")]})
+        agent.update_state(self.config, {'messages': [('system', f'The previous agent turn failed with error: {error_msg}')]})
 
     def _process_stream(self, stream) -> None:
         """
@@ -282,7 +282,7 @@ class ChatAgent:
             for event in stream:
                 namespace = event.get('params', {}).get('namespace', [])
                 subagent_name = self._get_subagent_name(namespace)
-                event_source = subagent_name if subagent_name else "Assistant"
+                event_source = subagent_name if subagent_name else 'Assistant'
 
                 if event['method'] == 'messages':
                     payload_dict = event['params']['data'][0]
@@ -304,17 +304,17 @@ class ChatAgent:
                         if event_type == 'content-block-start':
                             block_type = payload_dict['content']['type']
                             if block_type == 'text':
-                                self._emit(MessageStartEvent(source="Assistant"))
+                                self._emit(MessageStartEvent(source='Assistant'))
                                 current_msg_buffer = ''
                         elif event_type == 'content-block-delta':
                             delta = payload_dict['delta']
                             if delta.get('type') == 'text-delta':
                                 text_chunk = delta['text']
-                                self._emit(MessageChunkEvent(source="Assistant", chunk=text_chunk))
+                                self._emit(MessageChunkEvent(source='Assistant', chunk=text_chunk))
                                 current_msg_buffer += text_chunk
                         elif event_type == 'content-block-finish':
                             if current_msg_buffer:
-                                self._emit(MessageCompleteEvent(source="Assistant", content=current_msg_buffer))
+                                self._emit(MessageCompleteEvent(source='Assistant', content=current_msg_buffer))
                                 current_msg_buffer = ''
                 elif event['method'] == 'tools':
                     data = event['params']['data']
@@ -347,7 +347,7 @@ class ChatAgent:
                         active_tool = active_tools.pop(tool_call_id, {}) if tool_call_id else {}
                         t_name = active_tool.get('tool_name', 'Unknown')
                         t_input = active_tool.get('input', {})
-                        err_msg = str(data.get('message') or data.get('error') or "Tool Failed")
+                        err_msg = str(data.get('message') or data.get('error') or 'Tool Failed')
                         pending_tool_errors.append(ToolErrorEvent(source=event_source, tool_name=t_name, arguments=t_input, error=err_msg))
                 elif event['method'] == 'custom':
                     data = event['params']['data']
@@ -367,11 +367,11 @@ class ChatAgent:
                         elif subagent_event == 'subagent_end':
                             formatted_result = self._format_subagent_output(data.get('output', ''))
                             self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='result', result=formatted_result))
-                            self._emit(ThinkingEvent(source="Assistant"))
+                            self._emit(ThinkingEvent(source='Assistant'))
                         elif subagent_event == 'subagent_error':
-                            err_msg = str(data.get('error') or "Subagent execution failed")
+                            err_msg = str(data.get('error') or 'Subagent execution failed')
                             self._emit(SubagentLifecycleEvent(source=s_name, lifecycle_type='error', error=err_msg))
-                            self._emit(ThinkingEvent(source="Assistant"))
+                            self._emit(ThinkingEvent(source='Assistant'))
 
             if getattr(stream, 'interrupted', False):
                 # Stream was interrupted for human approval; discard transient tool errors
@@ -384,7 +384,7 @@ class ChatAgent:
                         t_args = payload.get('arguments', {})
                         t_msg = payload.get('message', 'Approval required.')
                     else:
-                        t_name = "UnknownTool"
+                        t_name = 'UnknownTool'
                         t_args = {}
                         t_msg = str(payload)
                         
@@ -399,11 +399,11 @@ class ChatAgent:
                     self._emit(err_event)
                     self._emit(ThinkingEvent())
         except GraphRecursionError as e:
-            error_msg = f"Recursion limit reached: {str(e)}"
+            error_msg = f'Recursion limit reached: {str(e)}'
             self._emit(ErrorEvent(error=error_msg))
             self._inject_error_to_agent_state(error_msg)
         except Exception as e:
-            error_msg = f"Agent execution failed: {str(e)}"
+            error_msg = f'Agent execution failed: {str(e)}'
             self._emit(ErrorEvent(error=error_msg))
             self._inject_error_to_agent_state(error_msg)
         finally:
@@ -464,38 +464,38 @@ class ChatAgent:
         return self.history
 
 if __name__ == '__main__':
-    print("\n--- Initializing Agent ---")
+    print('\n--- Initializing Agent ---')
     testAgent = ChatAgent()
     
     # 1. Define a UI listener function
     def my_ui_renderer(event: ChatEvent):
         if isinstance(event, MessageChunkEvent):
             # Print chunks on the same line to test streaming
-            print(event.chunk, end="", flush=True)
+            print(event.chunk, end='', flush=True)
         else:
             # Print other events with their type to clearly see the order
-            print(f"\n[EVENT EMITTED] {type(event).__name__} (Source: {event.source})")
+            print(f'\n[EVENT EMITTED] {type(event).__name__} (Source: {event.source})')
             if isinstance(event, MessageCompleteEvent):
-                print(f"   Content Length: {len(event.content)} characters")
+                print(f'   Content Length: {len(event.content)} characters')
             elif isinstance(event, UserMessageEvent):
-                print(f"   User Says: {event.content}")
+                print(f'   User Says: {event.content}')
             elif isinstance(event, ToolRequestEvent):
-                print(f"   Tool: {event.tool_name} requested")
+                print(f'   Tool: {event.tool_name} requested')
             elif isinstance(event, ToolResultEvent):
-                print(f"   Tool: {event.tool_name} returned result")
+                print(f'   Tool: {event.tool_name} returned result')
             elif isinstance(event, ErrorEvent):
-                print(f"   Error: {event.error}")
+                print(f'   Error: {event.error}')
             
     # 2. Subscribe the UI to the agent
     testAgent.add_listener(my_ui_renderer)
     testAgent.load()
     
     # 3. Send message (agent will now emit events to the renderer)
-    print("\n--- Sending First Message ---")
-    testAgent.send_message("List the tables in the database and describe them.")
+    print('\n--- Sending First Message ---')
+    testAgent.send_message('List the tables in the database and describe them.')
     
     # 4. Verify History Order
-    print("\n\n--- Verifying History Order ---")
+    print('\n\n--- Verifying History Order ---')
     history = testAgent.get_history()
     for i, event in enumerate(history):
-        print(f"History[{i}]: {type(event).__name__} (Source: {event.source})")
+        print(f'History[{i}]: {type(event).__name__} (Source: {event.source})')

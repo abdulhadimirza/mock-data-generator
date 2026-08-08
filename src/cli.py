@@ -212,8 +212,8 @@ class CLIRenderer:
 
     def _handle_thinking(self, event: ThinkingEvent):
         self.start_live()
-        prefix = f"[{event.source}] " if event.source != "Assistant" else ""
-        self.live.update(Spinner('dots', text=f"[dim]{prefix}Thinking...[/dim]"))
+        prefix = f'[{event.source}] ' if event.source != 'Assistant' else ''
+        self.live.update(Spinner('dots', text=f'[dim]{prefix}Thinking...[/dim]'))
 
     def _handle_subagent_progress(self, event: SubagentProgressEvent):
         self.stop_live()
@@ -223,11 +223,11 @@ class CLIRenderer:
         render_subagent_progress(self.console, event.source, event.message)
 
     def _handle_message_start(self, event: MessageStartEvent):
-        if event.source == "Assistant":
+        if event.source == 'Assistant':
             self.full_response = ''
 
     def _handle_message_chunk(self, event: MessageChunkEvent):
-        if event.source != "Assistant":
+        if event.source != 'Assistant':
             return
 
         self.full_response += event.chunk
@@ -237,13 +237,13 @@ class CLIRenderer:
         term_height = shutil.get_terminal_size().lines
         max_lines = max(5, term_height - 10)
         
-        lines = self.full_response.split("\n")
+        lines = self.full_response.split('\n')
         if len(lines) > max_lines:
-            display_text = "...\n" + "\n".join(lines[-max_lines:])
+            display_text = '...\n' + '\n'.join(lines[-max_lines:])
         else:
             display_text = self.full_response
             
-        self.live.update(Markdown(display_text + " ▌"))
+        self.live.update(Markdown(display_text + ' ▌'))
 
     def _handle_message_complete(self, event: MessageCompleteEvent):
         self.stop_live()
@@ -258,7 +258,7 @@ class CLIRenderer:
             self.console.print(Markdown(self.full_response))
             self.full_response = ''
         
-        if event.source != "Assistant":
+        if event.source != 'Assistant':
             render_subagent_tool_request(self.console, event.source, event.tool_name, event.arguments)
         else:
             render_tool_request(self.console, event.tool_name, event.arguments)
@@ -273,7 +273,7 @@ class CLIRenderer:
 
     def _handle_tool_result(self, event: ToolResultEvent):
         self.stop_live()
-        if event.source != "Assistant":
+        if event.source != 'Assistant':
             render_subagent_tool_result(self.console, event.source, event.tool_name, str(event.result))
         else:
             render_tool_result(self.console, event.tool_name, str(event.result))
@@ -281,7 +281,7 @@ class CLIRenderer:
 
     def _handle_tool_error(self, event: ToolErrorEvent):
         self.stop_live()
-        if event.source != "Assistant":
+        if event.source != 'Assistant':
             render_subagent_tool_error(self.console, event.source, event.tool_name, event.arguments, event.error)
         else:
             render_tool_error(self.console, event.tool_name, event.arguments, event.error)

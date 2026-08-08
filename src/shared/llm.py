@@ -87,7 +87,7 @@ gemini_supervisor: ChatGoogleGenerativeAI = create_gemini_llm(thinking_level='mi
 
 # Model Fallback Configuration Flag
 # Set to True to make Gemini primary and DeepSeek fallback across all agents.
-USE_GEMINI_AS_PRIMARY: bool = os.environ.get("USE_GEMINI_AS_PRIMARY", "False").lower() in ("true", "1", "yes")
+USE_GEMINI_AS_PRIMARY: bool = os.environ.get('USE_GEMINI_AS_PRIMARY', 'False').lower() in ('true', '1', 'yes')
 
 
 StructuredOutputFormat = Literal['json', 'strict', 'schema']
@@ -98,15 +98,15 @@ def _resolve_structured_output_method(model: BaseChatModel, format_val: Optional
         return None
 
     if isinstance(model, ChatDeepSeek):
-        if format_val == "json":
-            return "json_mode"
-        elif format_val in ("strict", "schema"):
-            return "function_calling"
+        if format_val == 'json':
+            return 'json_mode'
+        elif format_val in ('strict', 'schema'):
+            return 'function_calling'
         return format_val
 
     if isinstance(model, ChatGoogleGenerativeAI):
-        if format_val in ("json", "strict", "schema"):
-            return "json_schema"
+        if format_val in ('json', 'strict', 'schema'):
+            return 'json_schema'
         return format_val
 
     return format_val
@@ -116,11 +116,11 @@ def _build_structured_output_kwargs(model: BaseChatModel, format_val: Optional[s
     method = _resolve_structured_output_method(model, format_val)
     kwargs: Dict[str, Any] = {}
     if method:
-        kwargs["method"] = method
+        kwargs['method'] = method
 
     # "strict" argument is not supported with method="json_mode"
-    if method != "json_mode":
-        kwargs["strict"] = True
+    if method != 'json_mode':
+        kwargs['strict'] = True
 
     return kwargs
 

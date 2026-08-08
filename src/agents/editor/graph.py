@@ -24,7 +24,7 @@ editor_workflow.add_node('tools', ToolNode(editor_tools))
 editor_workflow.add_edge(START, 'agent')
 editor_workflow.add_conditional_edges('agent', tools_condition, {'tools': 'tools', END: END})
 editor_workflow.add_edge('tools', 'agent')
-data_editor_graph = editor_workflow.compile(name="editor_subagent_graph")
+data_editor_graph = editor_workflow.compile(name='editor_subagent_graph')
 
 # 2. Subagent Tool Definition
 @tool
@@ -35,4 +35,4 @@ def call_data_editor(query: str) -> str:
     Args:
         query: Clear instructions or SQL statement for the write operation.
     """
-    return "Data Editor task initiated."
+    return 'Data Editor task initiated.'

@@ -89,7 +89,7 @@ def init_db() -> None:
         # Insert Mock Data if the database is empty
         cursor.execute('SELECT COUNT(*) as count FROM users')
         if cursor.fetchone()['count'] == 0:
-            print("Inserting mock data...")
+            print('Inserting mock data...')
             
             # Users
             users = [
@@ -128,6 +128,6 @@ def init_db() -> None:
         conn.commit()
 
 if __name__ == '__main__':
-    print(f"Initializing database at {DB_PATH}")
+    print(f'Initializing database at {DB_PATH}')
     init_db()
-    print("Database initialized successfully.")
+    print('Database initialized successfully.')

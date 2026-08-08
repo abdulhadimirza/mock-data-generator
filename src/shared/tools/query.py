@@ -10,18 +10,18 @@ def execute_select_query(sql_query: str) -> str:
     try:
         parsed_expressions = sqlglot.parse(sql_query, read='sqlite')
     except Exception as e:
-        raise ToolException(f"SQL Parsing Error: Could not parse query with sqlglot: {e}")
+        raise ToolException(f'SQL Parsing Error: Could not parse query with sqlglot: {e}')
 
     for expr in parsed_expressions:
         if expr is None:
             continue
         # Hard-block any non-SELECT or mutation operations at AST level
         if any(isinstance(node, (exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Create, exp.Alter, exp.Replace)) for node in expr.walk()):
-            raise ToolException(f"Execution blocked: Only SELECT queries are permitted in execute_select_query. Found forbidden statement in AST.")
+            raise ToolException('Execution blocked: Only SELECT queries are permitted in execute_select_query. Found forbidden statement in AST.')
 
     statements = parse_sql_statements(sql_query)
     if not statements:
-        return "No valid SQL statements found in input."
+        return 'No valid SQL statements found in input.'
 
     try:
         with get_readonly_connection() as conn:
@@ -34,20 +34,20 @@ def execute_select_query(sql_query: str) -> str:
                 rows = cursor.fetchmany(101)
                 output_rows = rows[:100]
                 
-                stmt_hdr = f"Results for Statement {idx} ('{stmt}'):" if len(statements) > 1 else "Query Results:"
+                stmt_hdr = f"Results for Statement {idx} ('{stmt}'):" if len(statements) > 1 else 'Query Results:'
                 if not output_rows:
-                    results_output.append(f"{stmt_hdr}\nQuery executed successfully, but returned no rows.")
+                    results_output.append(f'{stmt_hdr}\nQuery executed successfully, but returned no rows.')
                 else:
                     lines = [stmt_hdr]
                     for row in output_rows:
                         lines.append(str(format_row(dict(row))))
                     if len(rows) > 100:
-                        lines.append("... Output truncated (100 rows maximum) ...")
-                    results_output.append("\n".join(lines))
+                        lines.append('... Output truncated (100 rows maximum) ...')
+                    results_output.append('\n'.join(lines))
                     
-            return "\n\n".join(results_output)
+            return '\n\n'.join(results_output)
     except Exception as e:
-        raise ToolException(f"Database Error: {e}")
+        raise ToolException(f'Database Error: {e}')
 
 @tool()
 def get_table_sample(table_name: str, limit: int = 3) -> str:
@@ -68,7 +68,7 @@ def get_table_sample(table_name: str, limit: int = 3) -> str:
             lines = [f"Sample Data for table '{table_name}' ({len(rows)} row(s)):"]
             for r in rows:
                 lines.append(str(format_row(dict(r))))
-            return "\n".join(lines)
+            return '\n'.join(lines)
     except Exception as e:
         raise ToolException(f"Error fetching sample data for table '{table_name}': {e}")
 

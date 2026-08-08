@@ -17,9 +17,9 @@ from .stress.graph import stress_subgraph
 def route_mode(state: GeneratorState):
     mode = state.get('generation_mode', 'Stress Testing')
     if mode == 'Realistic Analytics':
-        emit_progress("Routing execution to Realistic Analytics subgraph branch...")
+        emit_progress('Routing execution to Realistic Analytics subgraph branch...')
         return 'realistic_branch'
-    emit_progress("Routing execution to Stress Testing subgraph branch...")
+    emit_progress('Routing execution to Stress Testing subgraph branch...')
     return 'stress_branch'
 
 
@@ -50,7 +50,7 @@ generator_workflow.add_edge('realistic_branch', 'summary')
 generator_workflow.add_edge('stress_branch', 'summary')
 generator_workflow.add_edge('summary', END)
 
-mock_generator_graph = generator_workflow.compile(name="generator_subagent_graph")
+mock_generator_graph = generator_workflow.compile(name='generator_subagent_graph')
 
 
 # Subagent Tool Definition
@@ -69,4 +69,4 @@ def call_mock_generator(query: str) -> str:
     Args:
         query: Clear request or requirements regarding mock data generation.
     """
-    return "Mock Data Generator task initiated."
+    return 'Mock Data Generator task initiated.'

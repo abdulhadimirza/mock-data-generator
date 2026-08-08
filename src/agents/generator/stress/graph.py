@@ -29,7 +29,7 @@ def _build_stress_subgraph():
             END: END
         }
     )
-    return builder.compile(name="stress_subgraph")
+    return builder.compile(name='stress_subgraph')
 
 
 stress_subgraph = _build_stress_subgraph()

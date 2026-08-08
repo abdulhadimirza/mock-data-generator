@@ -170,10 +170,10 @@ def run_in_sandbox(code: str, safe_builtins: dict = None):
         try:
             exec(code, safe_globals)
             conn.commit()
-            return True, "Successfully executed mock data insertion script in sandbox environment."
+            return True, 'Successfully executed mock data insertion script in sandbox environment.'
         except Exception as e:
             conn.rollback()
-            return False, f"{type(e).__name__}: {str(e)}"
+            return False, f'{type(e).__name__}: {str(e)}'
 
 def _sandbox_worker(code, result_queue):
     old_stdout = sys.stdout
@@ -184,16 +184,16 @@ def _sandbox_worker(code, result_queue):
         if success:
             output = captured_stdout.getvalue()
             if output:
-                message = f"{message}\n\n<console_output>\n{output}</console_output>"
+                message = f'{message}\n\n<console_output>\n{output}</console_output>'
         result_queue.put((success, message))
     except Exception as e:
-        result_queue.put((False, f"{type(e).__name__}: {str(e)}"))
+        result_queue.put((False, f'{type(e).__name__}: {str(e)}'))
     finally:
         sys.stdout = old_stdout
 
 def run_in_isolated_sandbox(code: str, timeout_seconds: int = 15) -> tuple[bool, str]:
     if not code:
-        return False, "Empty generated code."
+        return False, 'Empty generated code.'
 
     result_queue = multiprocessing.Queue()
     process = multiprocessing.Process(
@@ -209,9 +209,9 @@ def run_in_isolated_sandbox(code: str, timeout_seconds: int = 15) -> tuple[bool,
         except queue.Empty:
             if process.is_alive():
                 process.terminate()
-                error_msg = f"TimeoutError: Execution timed out after {timeout_seconds} seconds limit."
+                error_msg = f'TimeoutError: Execution timed out after {timeout_seconds} seconds limit.'
             else:
-                error_msg = "Execution failed: No result returned from process."
+                error_msg = 'Execution failed: No result returned from process.'
             process.join()
             return False, error_msg
 
@@ -221,5 +221,5 @@ def run_in_isolated_sandbox(code: str, timeout_seconds: int = 15) -> tuple[bool,
         if process.is_alive():
             process.terminate()
         process.join()
-        return False, f"{type(e).__name__}: {str(e)}"
+        return False, f'{type(e).__name__}: {str(e)}'
 

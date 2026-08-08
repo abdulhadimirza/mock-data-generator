@@ -16,8 +16,8 @@ from .nodes import (
 
 def route_ast_check(success_target: str, fixer_target: str, fallback_target: str, max_retries: int = 3):
     def router(state: RealisticState):
-        error = state.get("ast_error")
-        retries = state.get("ast_retry_count", 0)
+        error = state.get('ast_error')
+        retries = state.get('ast_retry_count', 0)
 
         if not error:
             return success_target
@@ -92,7 +92,7 @@ def _build_realistic_subgraph():
             END: END
         }
     )
-    return builder.compile(name="realistic_subgraph")
+    return builder.compile(name='realistic_subgraph')
 
 
 realistic_subgraph = _build_realistic_subgraph()
