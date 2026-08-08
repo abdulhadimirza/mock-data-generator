@@ -146,7 +146,12 @@ def create_syntax_fixer_node(code_key: str):
 
         emit_progress(f"Attempting search & replace syntax repair for {code_key} (Attempt {current_retries + 1})...")
 
-        prompt = f"<code_to_fix>\n{code}\n</code_to_fix>\n\n<syntax_error>\n{ast_error}\n</syntax_error>"
+        numbered_lines = [
+            f"{i + 1} | {line}" for i, line in enumerate(code.splitlines())
+        ]
+        numbered_code = "\n".join(numbered_lines)
+
+        prompt = f"<code_with_line_numbers>\n{numbered_code}\n</code_with_line_numbers>\n\n<syntax_error>\n{ast_error}\n</syntax_error>"
         messages = [
             SystemMessage(content=syntax_fixer_system_prompt),
             HumanMessage(content=prompt)

@@ -12,8 +12,8 @@ class RealisticState(GeneratorState):
 
 
 class SearchReplacePatch(BaseModel):
-    search: str = Field(description="The exact snippet of code containing the syntax error to be replaced.")
-    replace: str = Field(description="The corrected code snippet.")
+    search: str = Field(description="The exact snippet of raw code containing the syntax error to be replaced.")
+    replace: str = Field(description="The corrected raw code snippet.")
 
 
 class SyntaxFixResponse(BaseModel):
