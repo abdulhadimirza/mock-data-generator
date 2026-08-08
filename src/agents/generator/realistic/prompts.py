@@ -167,7 +167,8 @@ Ensure the `search` snippet matches the original raw Python code exactly, omitti
     {
       "search": "str: The exact snippet of raw code containing the syntax error to be replaced.",
       "replace": "str: The corrected raw code snippet."
-    }
+    },
+    ...
   ]
 }
 </output_json_schema>"""
