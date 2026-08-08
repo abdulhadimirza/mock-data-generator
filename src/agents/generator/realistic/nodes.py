@@ -1,4 +1,6 @@
-from langchain_core.messages import SystemMessage, AIMessage
+import ast
+import traceback
+from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from shared.llm import (
@@ -6,14 +8,16 @@ from shared.llm import (
     deepseek_planner, gemini_planner,
     deepseek_utility_synthesizer, gemini_utility_synthesizer,
     deepseek_code_gen, gemini_code_gen,
+    deepseek_ast_fixer, gemini_ast_fixer,
 )
 from ..common.utils import emit_progress
 from ..state import GeneratorState
-from .state import UtilityCodeResponse, CodeGeneratorResponse
+from .state import UtilityCodeResponse, CodeGeneratorResponse, SyntaxFixResponse
 from .prompts import (
     realistic_planner_system_prompt,
     utility_synthesizer_system_prompt,
     realistic_code_generator_system_prompt,
+    syntax_fixer_system_prompt,
 )
 
 # 0. Planner Node
@@ -111,3 +115,52 @@ def realistic_code_generator_node(state: GeneratorState, config: RunnableConfig 
         "retry_count": current_retries + 1,
         "messages": [AIMessage(content=f"Generated Data Insertion Script:\n```python\n{final_python_code}\n```")]
     }
+
+
+# 3. AST Checker & Syntax Fixer Node Factories
+def create_ast_checker_node(code_key: str):
+    def ast_checker_node(state: GeneratorState):
+        code = state.get(code_key, "")
+        try:
+            ast.parse(code)
+            return {"ast_error": None, "ast_retry_count": 0}
+        except SyntaxError as e:
+            error_msg = f"SyntaxError in {code_key} at line {e.lineno}:\n{e.msg}\nContext:\n{e.text}"
+            return {"ast_error": error_msg}
+    return ast_checker_node
+
+
+ast_fixer_llm = get_llm(
+    primary=deepseek_ast_fixer,
+    fallbacks=[gemini_ast_fixer],
+    structured_output=SyntaxFixResponse,
+    format="json",
+)
+
+
+def create_syntax_fixer_node(code_key: str):
+    def syntax_fixer_node(state: GeneratorState, config: RunnableConfig = None):
+        code = state.get(code_key, "")
+        ast_error = state.get("ast_error", "")
+        current_retries = state.get("ast_retry_count", 0)
+
+        emit_progress(f"Attempting search & replace syntax repair for {code_key} (Attempt {current_retries + 1})...")
+
+        prompt = f"<code_to_fix>\n{code}\n</code_to_fix>\n\n<syntax_error>\n{ast_error}\n</syntax_error>"
+        messages = [
+            SystemMessage(content=syntax_fixer_system_prompt),
+            HumanMessage(content=prompt)
+        ]
+
+        response = ast_fixer_llm.invoke(messages, config=config)
+
+        fixed_code = code
+        for patch in response.patches:
+            if patch.search in fixed_code:
+                fixed_code = fixed_code.replace(patch.search, patch.replace)
+
+        return {
+            code_key: fixed_code,
+            "ast_retry_count": current_retries + 1
+        }
+    return syntax_fixer_node

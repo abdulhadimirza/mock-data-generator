@@ -7,6 +7,18 @@ from ..state import GeneratorState
 class RealisticState(GeneratorState):
     utility_code: Optional[str]
     utility_stubs_code: Optional[str]
+    ast_error: Optional[str]
+    ast_retry_count: Optional[int]
+
+
+class SearchReplacePatch(BaseModel):
+    search: str = Field(description="The exact snippet of code containing the syntax error to be replaced.")
+    replace: str = Field(description="The corrected code snippet.")
+
+
+class SyntaxFixResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    patches: list[SearchReplacePatch] = Field(description="List of search and replace operations to fix syntax errors.")
 
 
 class UtilityCodeResponse(BaseModel):
