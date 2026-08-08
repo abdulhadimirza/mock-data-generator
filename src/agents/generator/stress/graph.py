@@ -4,7 +4,7 @@ from ..common.nodes import (
     sandbox_execution_node,
     subgraph_route_execution,
 )
-from ..state import GeneratorState
+from .state import StressState
 from .nodes import (
     stress_planner_node,
     code_generator_node,
@@ -12,7 +12,7 @@ from .nodes import (
 
 
 def _build_stress_subgraph():
-    builder = StateGraph(GeneratorState)
+    builder = StateGraph(StressState)
     builder.add_node('planner', stress_planner_node)
     builder.add_node('code_generator', code_generator_node)
     builder.add_node('sandbox_execution', sandbox_execution_node)

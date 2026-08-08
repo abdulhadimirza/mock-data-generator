@@ -4,7 +4,7 @@ from ..common.nodes import (
     sandbox_execution_node,
     subgraph_route_execution,
 )
-from ..state import GeneratorState
+from .state import RealisticState
 from .nodes import (
     realistic_planner_node,
     utility_synthesizer_node,
@@ -13,7 +13,7 @@ from .nodes import (
 
 
 def _build_realistic_subgraph():
-    builder = StateGraph(GeneratorState)
+    builder = StateGraph(RealisticState)
     builder.add_node('planner', realistic_planner_node)
     builder.add_node('utility_synthesizer', utility_synthesizer_node)
     builder.add_node('code_generator', realistic_code_generator_node)

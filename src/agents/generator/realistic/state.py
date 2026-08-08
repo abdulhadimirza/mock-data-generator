@@ -1,4 +1,12 @@
+from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
+
+from ..state import GeneratorState
+
+
+class RealisticState(GeneratorState):
+    utility_code: Optional[str]
+    utility_stubs_code: Optional[str]
 
 
 class UtilityCodeResponse(BaseModel):
